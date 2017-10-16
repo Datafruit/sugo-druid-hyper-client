@@ -121,8 +121,8 @@ public class DataSender implements Closeable {
     }
 
     /**
-     * A single row that to be added to Tindex, the column values are separated with delimiter
-     * which is passed to Tindex when you create the data source.
+     * A single row that to be added to UIndex, the column values are separated with delimiter
+     * which is passed to UIndex when you create the data source.
      * Note that: the order of the column values in the row must be same with the dimensions
      * of the data source.
      * @param row the row to be added. eg: 1001|Nicolas|male|18, the delimiter is '|'.
@@ -148,7 +148,7 @@ public class DataSender implements Closeable {
     }
 
     /**
-     * Add a single row to Tindex, which the column values are in the form of a list.
+     * Add a single row to UIndex, which the column values are in the form of a list.
      * Note that: the order of the column values in the list must be same with the dimensions
      * of the data source.
      * @param columnValues a single row's values. eg: ["1001", "Nicolas", "male", 18]
@@ -173,7 +173,7 @@ public class DataSender implements Closeable {
     }
 
     /**
-     * Update an existing row in Tindex.
+     * Update an existing row in UIndex.
      * Note that: the row must specified the primary column.
      * @param row the row to be updated. eg: {"id":"1001", "name":"Nicolas", "age":20}
      * @throws Exception
@@ -202,7 +202,7 @@ public class DataSender implements Closeable {
     }
 
     /**
-     * Update an existing row in Tindex.
+     * Update an existing row in UIndex.
      * @param columns the columns to be updated.   eg: ["id", "name", "age"]
      * @param values the new value of each column. eg: ["1001", "Nicolas", 18]
      * @throws Exception
@@ -228,7 +228,7 @@ public class DataSender implements Closeable {
     }
 
     /**
-     * Delete rows in Tindex.
+     * Delete rows in UIndex.
      * @param primaryValues the primary values of rows to be deleted. eg: ["1001", "1002", "1006"]
      * @throws Exception
      */
@@ -240,7 +240,7 @@ public class DataSender implements Closeable {
     }
 
     /**
-     * Delete a single row in Tindex.
+     * Delete a single row in UIndex.
      * @param primaryValue the primary value of the row to be deleted.
      * @throws Exception
      */
