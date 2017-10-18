@@ -1,6 +1,8 @@
 package io.druid.hyper.client.imports.mr;
 
+import com.google.common.base.Function;
 import com.google.common.base.Splitter;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import io.druid.hyper.client.imports.DataSender;
 import org.apache.hadoop.io.LongWritable;
@@ -10,7 +12,9 @@ import org.apache.hadoop.mapreduce.Mapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 public class ImportMapper extends Mapper<LongWritable, Text, LongWritable, NullWritable> {
@@ -53,7 +57,20 @@ public class ImportMapper extends Mapper<LongWritable, Text, LongWritable, NullW
             line = line.replaceAll("\n" , "");
 
             if ("U".equalsIgnoreCase(action)) {
-                sender.update(columns, Lists.newArrayList(Splitter.on("\001").trimResults().split(line)));
+                sender.update(columns,
+                        Lists.newArrayList(
+                                Iterables.transform(
+                                        Splitter.on("\001").trimResults().split(line),
+                                        new Function<String, Object>() {
+                                            @Nullable
+                                            @Override
+                                            public Object apply(@Nullable String input) {
+                                                return input;
+                                            }
+                                        }
+                                )
+                        )
+                );
             } else {
                 sender.add(line);
             }

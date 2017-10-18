@@ -11,27 +11,33 @@ import java.util.Map;
 
 public class DataSenderTest {
 
-    private static final String HMASTER = "192.168.0.217:8086";
-    private static final String DATA_SOURCE = "huangama";
+    private static final String HMASTER = "hd-node-228-28.meizu.gz:8086";
+    private static final String DATA_SOURCE = "igola_profile";
 
     public void add() throws Exception {
         DataSender sender = getSender();
-        sender.add("1\001sugo\0011001\0011\001192.168.0.01\001[\"haha\", \"hehe\"]");
-        sender.add(Lists.newArrayList("2", "sugo2", "1002", "0", "192.168.0.66", "[\"wawa\"]"));
-        sender.add(Lists.newArrayList("3", "sugo3", "1003", "1", "192.168.0.88", "[\"gaga\"]"));
+//        sender.add("1001|M|18");
+//        sender.add(Lists.newArrayList("1002", "F", "16"));
+//        sender.add(Lists.newArrayList("1003", "F", "24"));
         sender.close();
     }
 
     public void update() throws Exception {
         DataSender sender = getSender();
         Map dataMap = Maps.newHashMap();
-        dataMap.put("app_id", "1001");
-        dataMap.put("event_id", "7878");
-        sender.update(dataMap);
+//        dataMap.put("uid", "1001");
+//        dataMap.put("profile_age", "99");
+//        sender.update(dataMap);
 
-        List columns = Lists.newArrayList("app_id", "event_id");
-        sender.update(columns, Lists.newArrayList("1002", "9696"));
-        sender.update(columns, Lists.newArrayList("1003", "4455"));
+        List columns = Lists.newArrayList("uid", "new_class");
+//        sender.update(columns, Lists.newArrayList("1002", "snow"));
+//        sender.update(columns, Lists.newArrayList("1003", "rain"));
+        sender.close();
+    }
+
+    public void delete() throws Exception {
+        DataSender sender = getSender();
+        sender.delete("1001");
         sender.close();
     }
 
@@ -41,8 +47,9 @@ public class DataSenderTest {
 
     public static void main(String[] args) throws Exception {
         DataSenderTest senderTest = new DataSenderTest();
-        senderTest.add();
-//        senderTest.update();
+//        senderTest.add();
+        senderTest.update();
+//        senderTest.delete();
     }
 
     public static void main1(String[] args) throws Exception {
