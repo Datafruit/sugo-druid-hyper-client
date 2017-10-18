@@ -1,5 +1,7 @@
 package io.druid.hyper.client.imports.mr;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.Lists;
 import io.druid.hyper.client.imports.DataSender;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.NullWritable;
@@ -9,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.List;
 
 public class ImportMapper extends Mapper<LongWritable, Text, LongWritable, NullWritable> {
 
@@ -16,6 +19,8 @@ public class ImportMapper extends Mapper<LongWritable, Text, LongWritable, NullW
 
     private String hmaster;
     private String dataSource;
+    private String action;
+    private List<String> columns;
     private DataSender sender;
 
     enum SendCounter {
@@ -25,6 +30,11 @@ public class ImportMapper extends Mapper<LongWritable, Text, LongWritable, NullW
     protected void setup(final Context context) throws IOException, InterruptedException {
         hmaster = context.getConfiguration().get(ImportJob.KEY_HMASTER_HOST);
         dataSource = context.getConfiguration().get(ImportJob.KEY_DATASORUCE);
+        action = context.getConfiguration().get(ImportJob.KEY_ACTION);
+
+        String columnsStr = context.getConfiguration().get(ImportJob.KEY_COLUMNS);
+        columns = Lists.newArrayList(Splitter.on(",").trimResults().split(columnsStr));
+
         sender = DataSender.builder().toServer(hmaster).ofDataSource(dataSource).build();
     }
 
@@ -41,7 +51,12 @@ public class ImportMapper extends Mapper<LongWritable, Text, LongWritable, NullW
         try {
             String line = value.toString();
             line = line.replaceAll("\n" , "");
-            sender.add(line);
+
+            if ("U".equalsIgnoreCase(action)) {
+                sender.update(columns, Lists.newArrayList(Splitter.on("\001").trimResults().split(line)));
+            } else {
+                sender.add(line);
+            }
         } catch (Exception ex) {
             log.error("Failed to send the content", ex);
             context.getCounter(SendCounter.FAILED).increment(1);

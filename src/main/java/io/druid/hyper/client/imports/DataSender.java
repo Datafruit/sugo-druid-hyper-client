@@ -136,7 +136,7 @@ public class DataSender implements Closeable {
         List<String> columns = dataSourceSpecLoader.getColumns();
         Iterable<String> valuesIter = Splitter.on(delimiter).split(row);
         List<String> values = Lists.newArrayList(valuesIter);
-        if (columns.size() != values.size()) {
+        if (columns.size() > values.size()) {
             throw new IllegalArgumentException("Column values size not matched, expected: " +
                     columns.size() + ", but actually: " + values.size());
         }
@@ -160,7 +160,7 @@ public class DataSender implements Closeable {
         String delimiter = dataSourceSpecLoader.getDelimiter();
         int primaryIndex = dataSourceSpecLoader.getPrimaryIndex();
         List<String> columns = dataSourceSpecLoader.getColumns();
-        if (columns.size() != columnValues.size()) {
+        if (columns.size() > columnValues.size()) {
             throw new IllegalArgumentException("Column values size not matched, expected: " +
                     columns.size() + ", but actually: " + columnValues.size());
         }

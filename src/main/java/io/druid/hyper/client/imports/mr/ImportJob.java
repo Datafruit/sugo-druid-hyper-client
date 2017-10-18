@@ -13,6 +13,8 @@ public class ImportJob {
 
     public static final String KEY_DATASORUCE = "datasource";
     public static final String KEY_HMASTER_HOST = "hmaster";
+    public static final String KEY_ACTION = "action";
+    public static final String KEY_COLUMNS = "columns";
 
     public static void main(String[] args) throws Exception {
 
@@ -23,6 +25,8 @@ public class ImportJob {
         Configuration hadoopConfig = new Configuration();
         hadoopConfig.set(KEY_DATASORUCE, args[2]);
         hadoopConfig.set(KEY_HMASTER_HOST, args[3]);
+        hadoopConfig.set(KEY_ACTION, args[4]);
+        hadoopConfig.set(KEY_COLUMNS, args[5]);
 
         Job job = Job.getInstance(hadoopConfig);
         job.setJarByClass(ImportJob.class);
