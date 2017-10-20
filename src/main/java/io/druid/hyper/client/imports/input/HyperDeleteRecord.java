@@ -1,7 +1,5 @@
 package io.druid.hyper.client.imports.input;
 
-import com.google.common.base.Preconditions;
-
 import java.util.List;
 
 public class HyperDeleteRecord extends BatchRecord {
@@ -13,7 +11,6 @@ public class HyperDeleteRecord extends BatchRecord {
             Integer partitionNum,
             List<String> primaryValues) {
         super(BatchRecord.RECORD_ACTION_DELETE, dataSource, partitionNum);
-        Preconditions.checkNotNull(primaryValues.size() >= 1, "must specified at least one value.");
         this.primaryValues = primaryValues;
     }
 

@@ -1,7 +1,6 @@
 package io.druid.hyper.client.imports.input;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Preconditions;
 
 import java.util.List;
 
@@ -18,7 +17,6 @@ public class HyperAddRecord extends BatchRecord {
             Integer partitionNum,
             List<String> values) {
         super(BatchRecord.RECORD_ACTION_ADD, dataSource, partitionNum);
-        Preconditions.checkNotNull(values.size() >= 1, "must specified at least one value.");
         this.values = values;
     }
 

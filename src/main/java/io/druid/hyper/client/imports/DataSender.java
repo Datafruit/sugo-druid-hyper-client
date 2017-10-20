@@ -288,15 +288,17 @@ public class DataSender implements Closeable {
                                 List<String> valuesList = entry.getValue();
                                 if (!valuesList.isEmpty()) {
                                     synchronized (valuesList) {
-                                        try {
-                                            StringBuffer sb = new StringBuffer("Cache flush thread send a batch of data, action [")
-                                                    .append(cacheKey.getAction()).append("], size [")
-                                                    .append(valuesList.size()).append("], partitionNum [")
-                                                    .append(cacheKey.getPartitionNum()).append("].");
-                                            log.info(sb.toString());
-                                            sendData(cacheKey, valuesList);
-                                        } catch (Exception e) {
-                                            log.error("Cache flush thread send data error: ", e);
+                                        if (!valuesList.isEmpty()) {
+                                            try {
+                                                StringBuffer sb = new StringBuffer("Cache flush thread send a batch of data, action [")
+                                                        .append(cacheKey.getAction()).append("], size [")
+                                                        .append(valuesList.size()).append("], partitionNum [")
+                                                        .append(cacheKey.getPartitionNum()).append("].");
+                                                log.info(sb.toString());
+                                                sendData(cacheKey, valuesList);
+                                            } catch (Exception e) {
+                                                log.error("Cache flush thread send data error: ", e);
+                                            }
                                         }
                                     }
                                 }
@@ -350,10 +352,17 @@ public class DataSender implements Closeable {
                 List<String> valuesList = entry.getValue();
                 if (!valuesList.isEmpty()) {
                     synchronized (valuesList) {
-                        try {
-                            sendData(cacheKey, valuesList);
-                        } catch (Exception e) {
-                            log.error("Send data error when closing: ", e);
+                        if (!valuesList.isEmpty()) {
+                            try {
+                                StringBuffer sb = new StringBuffer("Main thread send a batch of data when closing, action [")
+                                        .append(cacheKey.getAction()).append("], size [")
+                                        .append(valuesList.size()).append("], partitionNum [")
+                                        .append(cacheKey.getPartitionNum()).append("].");
+                                log.info(sb.toString());
+                                sendData(cacheKey, valuesList);
+                            } catch (Exception e) {
+                                log.error("Send data error when closing: ", e);
+                            }
                         }
                     }
                 }
