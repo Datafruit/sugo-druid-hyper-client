@@ -46,12 +46,14 @@ public class RetryUtil {
                 return action.call();
             }
             catch (Throwable e) {
+                log.error("Action failed, and [" + nTry + "] times retries. Error details:", e);
                 if (nTry < maxTries && shouldRetry.apply(e)) {
                     awaitNextRetry(e, nTry, nTry <= quietTries);
                     if (actionBeforeRetry != null) {
                         actionBeforeRetry.call();
                     }
                 } else {
+                    log.error("Action failed, and no more retries. Error details:", e);
                     Throwables.propagateIfInstanceOf(e, Exception.class);
                     throw Throwables.propagate(e);
                 }
@@ -80,7 +82,7 @@ public class RetryUtil {
         sb.append("Failed on try ").append(nTry).append(" ms, retrying in ")
            .append(sleepMillis).append(" ms. Error: ").append(e.getMessage());
         if (quiet) {
-            log.debug(sb.toString());
+            log.info(sb.toString());
         } else {
             log.warn(sb.toString());
         }

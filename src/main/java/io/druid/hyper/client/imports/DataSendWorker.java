@@ -38,6 +38,7 @@ public class DataSendWorker {
                 @Override
                 public Void call() throws Exception {
                     serverLocator.reload();
+                    log.info("Retry to reload region server info.");
                     return null;
                 }
             },
