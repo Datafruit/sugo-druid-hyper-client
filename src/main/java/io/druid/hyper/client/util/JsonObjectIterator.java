@@ -123,6 +123,11 @@ public class JsonObjectIterator implements Iterator, Closeable {
         closeQuietly(this.inputStream);
     }
 
+    @Override
+    public void remove() {
+
+    }
+
     private void closeQuietly(Closeable closeable) {
         try {
             if (closeable != null) {
