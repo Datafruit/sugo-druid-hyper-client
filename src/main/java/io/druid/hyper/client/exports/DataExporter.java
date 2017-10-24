@@ -37,7 +37,7 @@ public abstract class DataExporter implements Closeable {
         return new HdfsDataExporter();
     }
 
-    public void export() throws IOException {
+    public void export() throws Exception {
         Preconditions.checkNotNull(server, "server can not be null.");
         Preconditions.checkNotNull(filePath, "export file can not be null.");
         Preconditions.checkNotNull(query, "query can not be null.");

@@ -16,7 +16,7 @@ public class DataExporterTest {
     private static final List<String> COLUMNS = Arrays.asList("SessionID", "Source", "Referrer", "Operator", "OsScreen", "Media", "IP", "UserID", "EventScreen", "Nation");
     private static final int COUNT = 1000;
 
-    public void  exportToLocal() throws IOException {
+    public void  exportToLocal() throws Exception {
         ScanQuery query = new ScanQuery(DATA_SOURCE, COLUMNS, COUNT);
         DataExporter.local()
                 .fromServer(SERVER)
@@ -26,7 +26,7 @@ public class DataExporterTest {
                 .export();
     }
 
-    public void  exportToHdfs() throws IOException {
+    public void  exportToHdfs() throws Exception {
         ScanQuery query = new ScanQuery(DATA_SOURCE, COLUMNS, COUNT);
         DataExporter.hdfs()
                 .fromServer(SERVER)
@@ -36,7 +36,7 @@ public class DataExporterTest {
                 .export();
     }
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws Exception {
         DataExporterTest exporterTest = new DataExporterTest();
         exporterTest.exportToLocal();
 //        exporterTest.exportToHdfs();
