@@ -79,7 +79,8 @@ public class DataSender implements Closeable {
             DataSender sender = senderCache.get(this);
             if (sender == null) {
                 sender = new DataSender(server, dataSource);
-                senderCache.putIfAbsent(this, sender);
+//                senderCache.putIfAbsent(this, sender);
+                senderCache.put(this, sender);
                 sender = senderCache.get(this); // Get again to make sure sender is not null.
             }
             return sender;
@@ -320,20 +321,18 @@ public class DataSender implements Closeable {
 
     private BatchRecord makeBatchRecord(CacheKey cacheKey, List<String> valuesList) {
         String action = cacheKey.getAction();
-        switch (action) {
-            case BatchRecord.RECORD_ACTION_ADD:
-                return new HyperAddRecord(dataSource, cacheKey.getPartitionNum(), valuesList);
-            case BatchRecord.RECORD_ACTION_UPDATE:
-                Iterable<String> columnsIter = Splitter.on(",")
-                        .trimResults()
-                        .split(cacheKey.getColumns());
-                List<String> columns = Lists.newArrayList(columnsIter);
-                return new HyperUpdateRecord(dataSource, cacheKey.getPartitionNum(), columns, valuesList);
-            case BatchRecord.RECORD_ACTION_DELETE:
-                return new HyperDeleteRecord(dataSource, cacheKey.getPartitionNum(), valuesList);
-            default:
-                return null;
+        if (BatchRecord.RECORD_ACTION_ADD.equals(action)) {
+            return new HyperAddRecord(dataSource, cacheKey.getPartitionNum(), valuesList);
+        } else if (BatchRecord.RECORD_ACTION_UPDATE.equals(action)) {
+            Iterable<String> columnsIter = Splitter.on(",")
+                    .trimResults()
+                    .split(cacheKey.getColumns());
+            List<String> columns = Lists.newArrayList(columnsIter);
+            return new HyperUpdateRecord(dataSource, cacheKey.getPartitionNum(), columns, valuesList);
+        } else if (BatchRecord.RECORD_ACTION_DELETE.equals(action)) {
+            return new HyperDeleteRecord(dataSource, cacheKey.getPartitionNum(), valuesList);
         }
+        return null;
     }
 
     private boolean reachThreshold(String action, int size) {
