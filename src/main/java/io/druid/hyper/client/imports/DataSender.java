@@ -48,10 +48,6 @@ public class DataSender implements Closeable {
         this(hmaster, dataSource, DEFAULT_SEND_THRESHOLD, context);
     }
 
-    private DataSender(String hmaster, String dataSource, int threshold) {
-        this(hmaster, dataSource, threshold, null);
-    }
-
     private DataSender(String hmaster, String dataSource, int threshold, TaskAttemptContext context) {
         this.dataSource = dataSource;
         this.sendWorker = new DataSendWorker(hmaster, dataSource);
