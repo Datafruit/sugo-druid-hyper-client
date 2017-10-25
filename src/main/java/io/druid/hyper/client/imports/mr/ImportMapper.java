@@ -39,7 +39,11 @@ public class ImportMapper extends Mapper<LongWritable, Text, LongWritable, NullW
         String columnsStr = context.getConfiguration().get(ImportJob.KEY_COLUMNS);
         columns = Lists.newArrayList(Splitter.on(",").trimResults().split(columnsStr));
 
-        sender = DataSender.builder().toServer(hmaster).ofDataSource(dataSource).build();
+        sender = DataSender.builder()
+                    .toServer(hmaster)
+                    .ofDataSource(dataSource)
+                    .withContext(context)
+                    .build();
     }
 
     protected void cleanup(Context context) throws IOException, InterruptedException {

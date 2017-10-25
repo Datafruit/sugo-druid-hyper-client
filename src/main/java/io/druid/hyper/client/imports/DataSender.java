@@ -12,6 +12,8 @@ import io.druid.hyper.client.imports.input.HyperAddRecord;
 import io.druid.hyper.client.imports.input.HyperDeleteRecord;
 import io.druid.hyper.client.imports.input.HyperUpdateRecord;
 import io.druid.hyper.client.util.PartitionUtil;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,18 +40,24 @@ public class DataSender implements Closeable {
 
     private ScheduledExecutorService cacheFlusher;
     private String dataSource;
+    private TaskAttemptContext context;
     private int updateThreshold;
     private int addThreshold = DEFAULT_SEND_THRESHOLD;
 
-    private DataSender(String hmaster, String dataSource) {
-        this(hmaster, dataSource, DEFAULT_SEND_THRESHOLD);
+    private DataSender(String hmaster, String dataSource, TaskAttemptContext context) {
+        this(hmaster, dataSource, DEFAULT_SEND_THRESHOLD, context);
     }
 
     private DataSender(String hmaster, String dataSource, int threshold) {
+        this(hmaster, dataSource, threshold, null);
+    }
+
+    private DataSender(String hmaster, String dataSource, int threshold, TaskAttemptContext context) {
         this.dataSource = dataSource;
         this.sendWorker = new DataSendWorker(hmaster, dataSource);
         this.dataSourceSpecLoader = new DataSourceSpecLoader(hmaster, dataSource);
         this.updateThreshold = threshold;
+        this.context = context;
         initializeFlusher();
     }
 
@@ -61,6 +69,7 @@ public class DataSender implements Closeable {
         private static Map<Builder, DataSender> senderCache = Maps.newConcurrentMap();
         private String dataSource;
         private String server;
+        private TaskAttemptContext context;
 
         public Builder ofDataSource(String dataSource) {
             this.dataSource = dataSource;
@@ -72,13 +81,18 @@ public class DataSender implements Closeable {
             return this;
         }
 
+        public Builder withContext(TaskAttemptContext context) {
+            this.context = context;
+            return this;
+        }
+
         public DataSender build() {
             Preconditions.checkNotNull(server, "server can not be null.");
             Preconditions.checkNotNull(dataSource, "data source can not be null.");
 
             DataSender sender = senderCache.get(this);
             if (sender == null) {
-                sender = new DataSender(server, dataSource);
+                sender = new DataSender(server, dataSource, context);
 //                senderCache.putIfAbsent(this, sender);
                 senderCache.put(this, sender);
                 sender = senderCache.get(this); // Get again to make sure sender is not null.
@@ -345,6 +359,9 @@ public class DataSender implements Closeable {
     public void close() throws IOException {
         if (cacheFlusher != null) {
             Iterator<Map.Entry<CacheKey, List<String>>> it = dataCache.entrySet().iterator();
+            log.info("Closing and flush remained " + dataCache.entrySet().size() + " cache entries.");
+
+            int i = 0;
             while (it.hasNext()) {
                 Map.Entry<CacheKey, List<String>> entry = it.next();
                 CacheKey cacheKey = entry.getKey();
@@ -359,14 +376,27 @@ public class DataSender implements Closeable {
                                         .append(cacheKey.getPartitionNum()).append("].");
                                 log.info(sb.toString());
                                 sendData(cacheKey, valuesList);
+
+                                if (context != null) {
+                                    context.progress();
+                                }
                             } catch (Exception e) {
                                 log.error("Send data error when closing: ", e);
                             }
                         }
                     }
                 }
+                log.info("Flush the '" + ++i + "th' cache entry successfully!");
             }
-            cacheFlusher.shutdown();
+
+            try {
+                cacheFlusher.shutdownNow();
+                Preconditions.checkState(cacheFlusher.awaitTermination(1, TimeUnit.MINUTES), "cacheFlusher not terminated");
+                log.info("Shutdown cacheFlusher successfully!");
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.error("Failed to shutdown cacheFlusher during close()");
+            }
         }
     }
 

@@ -18,22 +18,17 @@ public class HdfsDataExporter extends DataExporter {
 
     @Override
     public void init(String filePath) throws IOException {
-        try {
-            FS = FileSystem.get(hadoopConfig);
-            Path path = new Path(filePath);
+        FS = FileSystem.get(hadoopConfig);
+        Path path = new Path(filePath);
 
-            // Make sure parent directory existed.
-            Path parentDir = path.getParent();
-            FS.mkdirs(parentDir);
+        // Make sure parent directory existed.
+        Path parentDir = path.getParent();
+        FS.mkdirs(parentDir);
 
-            if (FS.exists(path)) {
-                outputStream = FS.append(path);
-            } else {
-                outputStream = FS.create(path, false);
-            }
-        } catch (Exception e) {
-            log.error("Create file [" + filePath + "] error: " + e.getMessage());
-            throw e;
+        if (FS.exists(path)) {
+            outputStream = FS.append(path);
+        } else {
+            outputStream = FS.create(path, false);
         }
     }
 
