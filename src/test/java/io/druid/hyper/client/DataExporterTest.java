@@ -17,7 +17,12 @@ public class DataExporterTest {
     private static final int COUNT = 1000;
 
     public void  exportToLocal() throws Exception {
-        ScanQuery query = new ScanQuery(DATA_SOURCE, COLUMNS, COUNT);
+        ScanQuery query = ScanQuery.builder()
+                .select(COLUMNS)
+                .from(DATA_SOURCE)
+                .limit(COUNT)
+                .build();
+
         DataExporter.local()
                 .fromServer(SERVER)
                 .toFile(LOCAL_FILE)
@@ -27,7 +32,12 @@ public class DataExporterTest {
     }
 
     public void  exportToHdfs() throws Exception {
-        ScanQuery query = new ScanQuery(DATA_SOURCE, COLUMNS, COUNT);
+        ScanQuery query = ScanQuery.builder()
+                .select(COLUMNS)
+                .from(DATA_SOURCE)
+                .limit(COUNT)
+                .build();
+
         DataExporter.hdfs()
                 .fromServer(SERVER)
                 .toFile(REMOTE_FILE)

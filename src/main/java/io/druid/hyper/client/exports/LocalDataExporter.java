@@ -22,6 +22,11 @@ public class LocalDataExporter extends DataExporter {
     }
 
     @Override
+    public void init(OutputStream outputStream) throws IOException {
+        writer = new BufferedWriter(new OutputStreamWriter(outputStream, "UTF-8"));
+    }
+
+    @Override
     public void writeRow(String row) throws IOException {
         writer.write(row);
         writer.newLine();

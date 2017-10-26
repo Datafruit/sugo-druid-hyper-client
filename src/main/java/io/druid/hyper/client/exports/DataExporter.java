@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -28,6 +29,7 @@ public abstract class DataExporter implements Closeable {
     String server;
     String separator;
     ScanQuery query;
+    OutputStream outputStream;
 
     public static DataExporter local() {
         return new LocalDataExporter();
@@ -39,13 +41,18 @@ public abstract class DataExporter implements Closeable {
 
     public void export() throws Exception {
         Preconditions.checkNotNull(server, "server can not be null.");
-        Preconditions.checkNotNull(filePath, "export file can not be null.");
         Preconditions.checkNotNull(query, "query can not be null.");
+        Preconditions.checkState(filePath != null || outputStream != null, "export file or output stream can not be null.");
 
-        log.info("Start to export data from server [" + server + " ] to file [" + filePath + "].");
         long start = System.currentTimeMillis();
 
-        init(filePath);
+        if (outputStream == null) {
+            log.info("Start to export data from server [" + server + " ] to file [" + filePath + "].");
+            init(filePath);
+        } else {
+            log.info("Start to export data from server [" + server + " ] to stream.");
+            init(outputStream);
+        }
 
         OkHttpClient client = (new OkHttpClient.Builder())
                 .connectTimeout(1800L, TimeUnit.SECONDS)
@@ -84,6 +91,8 @@ public abstract class DataExporter implements Closeable {
 
     protected abstract void init(String filePath) throws IOException;
 
+    protected abstract void init(OutputStream outputStream) throws IOException;
+
     protected abstract void writeRow(String row) throws IOException;
 
     protected abstract void flush() throws IOException;
@@ -112,6 +121,11 @@ public abstract class DataExporter implements Closeable {
 
     public DataExporter toFile(String file) {
         this.filePath = file;
+        return this;
+    }
+
+    public DataExporter toStream(OutputStream outputStream) {
+        this.outputStream = outputStream;
         return this;
     }
 

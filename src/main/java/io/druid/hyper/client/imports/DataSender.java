@@ -12,7 +12,6 @@ import io.druid.hyper.client.imports.input.HyperAddRecord;
 import io.druid.hyper.client.imports.input.HyperDeleteRecord;
 import io.druid.hyper.client.imports.input.HyperUpdateRecord;
 import io.druid.hyper.client.util.PartitionUtil;
-import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -357,32 +356,37 @@ public class DataSender implements Closeable {
             Iterator<Map.Entry<CacheKey, List<String>>> it = dataCache.entrySet().iterator();
             log.info("Closing and flush remained " + dataCache.entrySet().size() + " cache entries.");
 
-            int i = 0;
-            while (it.hasNext()) {
-                Map.Entry<CacheKey, List<String>> entry = it.next();
-                CacheKey cacheKey = entry.getKey();
-                List<String> valuesList = entry.getValue();
-                if (!valuesList.isEmpty()) {
-                    synchronized (valuesList) {
-                        if (!valuesList.isEmpty()) {
-                            try {
-                                StringBuffer sb = new StringBuffer("Main thread send a batch of data when closing, action [")
-                                        .append(cacheKey.getAction()).append("], size [")
-                                        .append(valuesList.size()).append("], partitionNum [")
-                                        .append(cacheKey.getPartitionNum()).append("].");
-                                log.info(sb.toString());
-                                sendData(cacheKey, valuesList);
-
-                                if (context != null) {
-                                    context.progress();
-                                }
-                            } catch (Exception e) {
-                                log.error("Send data error when closing: ", e);
-                            }
-                        }
+            for (;;) {
+                boolean sendFinished = true;
+                while (it.hasNext()) {
+                    Map.Entry<CacheKey, List<String>> entry = it.next();
+                    CacheKey cacheKey = entry.getKey();
+                    List<String> valuesList = entry.getValue();
+                    if (!valuesList.isEmpty()) {
+                        StringBuffer sb = new StringBuffer("There are still unsent data when closing, action [")
+                                .append(cacheKey.getAction()).append("], size [")
+                                .append(valuesList.size()).append("], partitionNum [")
+                                .append(cacheKey.getPartitionNum()).append("].");
+                        log.info(sb.toString());
+                        sendFinished = false;
+                        break;
                     }
                 }
-                log.info("Flush the '" + ++i + "th' cache entry successfully!");
+
+                if (!sendFinished) {
+                    try {
+                        if (context != null) {
+                            context.progress();
+                        }
+                        log.info("Wait 1 second for sending remained data, then enter checking of the next duration.");
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                } else {
+                    log.info("All remained data are sent finished, begin to shutdown cacheFlusher.");
+                    break;
+                }
             }
 
             try {
