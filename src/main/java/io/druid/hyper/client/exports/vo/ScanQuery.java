@@ -26,13 +26,15 @@ public class ScanQuery {
     @JsonProperty
     private List<String> intervals = Arrays.asList("1000/3000");
     @JsonProperty
-    private Map context = ImmutableMap.of("timeout", 60000);
+    private Map context = ImmutableMap.of("timeout", 900000);
 
     /** dynamic **/
     @JsonProperty
     private String dataSource;
     @JsonProperty
     private List<String> columns;
+    @JsonProperty
+    private AndDimFilter filter;
     @JsonProperty
     private int limit;
 
@@ -43,8 +45,8 @@ public class ScanQuery {
     public static class Builder {
         private String dataSource;
         private List<String> columns;
-        private int limit;
-        private FilterBuilder filterBuilder;
+        private int limit = Integer.MAX_VALUE;
+        private AndDimFilter filter;
 
         public Builder select(List<String> columns) {
             this.columns = columns;
@@ -61,249 +63,222 @@ public class ScanQuery {
             return this;
         }
 
-        public FilterBuilder where() {
-            this.filterBuilder = new FilterBuilder();
-            return filterBuilder;
+        public Builder where(FilterType... filterTypes) {
+            filter = new AndDimFilter(filterTypes);
+            return this;
         }
 
         public ScanQuery build() {
             Preconditions.checkNotNull(dataSource, "dataSource can not be null.");
             Preconditions.checkNotNull(columns, "columns can not be null.");
             Preconditions.checkArgument(columns.size() >= 1, "must specified at least one column.");
-            Preconditions.checkArgument(limit > 1, "count must be greater than 0.");
+            Preconditions.checkArgument(limit > 0, "count must be greater than 0.");
 
-            return new ScanQuery(dataSource, columns, limit);
+            return new ScanQuery(dataSource, columns, limit, filter);
         }
     }
 
-    public static class FilterBuilder {
-        private List<FieldType> andFields = new ArrayList<>();
-        private List<FieldType> orFields = new ArrayList<>();
-
-        public FilterBuilder andEqual(Condition condition) {
-            andFields.add(new EqualField(condition.getColumn(), condition.getValue()));
-            return this;
-        }
-
-        public FilterBuilder andNotEqual(Condition condition) {
-            andFields.add(new NotEqualField(condition.getColumn(), condition.getValue()));
-            return this;
-        }
-
-        public FilterBuilder andIn(Condition condition) {
-            andFields.add(new InField(condition.getColumn(), condition.getValue()));
-            return this;
-        }
-
-        public FilterBuilder andNotIn(Condition condition) {
-            andFields.add(new NotInField(condition.getColumn(), condition.getValue()));
-            return this;
-        }
-
-        public FilterBuilder andGreaterThan(Condition condition) {
-            andFields.add(new GreaterThanField(condition.getColumn(), condition.getValue()));
-            return this;
-        }
-
-        public FilterBuilder andGreaterThanEqual(Condition condition) {
-            andFields.add(new GreaterThanEqualField(condition.getColumn(), condition.getValue()));
-            return this;
-        }
-
-        public FilterBuilder andLessThan(Condition condition) {
-            andFields.add(new LessThanField(condition.getColumn(), condition.getValue()));
-            return this;
-        }
-
-        public FilterBuilder andLesshanEqual(Condition condition) {
-            andFields.add(new LessThanEqualField(condition.getColumn(), condition.getValue()));
-            return this;
-        }
-
-        public FilterBuilder andLookup(Condition condition) {
-            andFields.add(new LookupField(condition.getColumn(), condition.getValue()));
-            return this;
-        }
-    }
-
-    private ScanQuery(String dataSource, List<String> columns, int limit) {
+    private ScanQuery(String dataSource, List<String> columns, int limit, AndDimFilter filter) {
         this.dataSource = dataSource;
         this.columns = columns;
         this.limit = limit;
+        this.filter = filter;
     }
 
     @Override
     public String toString() {
         try {
+            System.out.println(jsonMapper.writeValueAsString(this));
             return jsonMapper.writeValueAsString(this);
         } catch (JsonProcessingException e) {
             return null;
         }
     }
 
-    public static class Condition {
-        String column;
-        Object value;
-
-        public Condition(String column, Object... value) {
-            this.column = column;
-            this.value = value;
-        }
-
-        public String getColumn() {
-            return column;
-        }
-
-        public Object getValue() {
-            return value;
-        }
+    public static Filter dimension(String dimension) {
+        return new Filter(dimension);
     }
 
-    private static class AndFilter {
-        String type = "and";
-        List<FieldType> fields = new ArrayList<>();
-
-        public AndFilter() {
-        }
-
-        public String getType() {
-            return type;
-        }
-
-        public void setType(String type) {
-            this.type = type;
-        }
-
-        public List<FieldType> getFields() {
-            return fields;
-        }
-
-        public void setFields(List<FieldType> fields) {
-            this.fields = fields;
-        }
+    public static FilterType and(FilterType... filterTypes) {
+        AndDimFilter andDimFilter = new AndDimFilter(filterTypes);
+        return andDimFilter;
     }
 
-    private static class OrFilter {
-        String type = "or";
-        List<FieldType> fields = new ArrayList<>();
-
-        public OrFilter() {
-        }
-
-        public String getType() {
-            return type;
-        }
-
-        public void setType(String type) {
-            this.type = type;
-        }
-
-        public List<FieldType> getFields() {
-            return fields;
-        }
-
-        public void setFields(List<FieldType> fields) {
-            this.fields = fields;
-        }
+    public static FilterType or(FilterType... filterTypes) {
+        OrDimFilter orDimFilter = new OrDimFilter(filterTypes);
+        return orDimFilter;
     }
 
-    private static class Field extends FieldType {
+    public static class Filter {
         String dimension;
-
-        public String getDimension() {
-            return dimension;
-        }
-
-        public void setDimension(String dimension) {
+        private Filter(String dimension) {
             this.dimension = dimension;
         }
+
+        public FilterType equal(Object value) {
+            return new EqualDimFilter(dimension, value);
+        }
+
+        public FilterType notEqual(Object value) {
+            return new NotEqualDimFilter(dimension, value);
+        }
+
+        public FilterType in(Object... values) {
+            return new InDimFilter(dimension, values);
+        }
+
+        public FilterType notIn(Object... values) {
+            return new NotInDimFilter(dimension, values);
+        }
+
+        public FilterType greaterThan(Object value) {
+            return new GreaterThanDimFilter(dimension, value);
+        }
+
+        public FilterType greaterThanEqual(Object value) {
+            return new GreaterThanEqualDimFilter(dimension, value);
+        }
+
+        public FilterType lessThan(Object value) {
+            return new LessThanDimFilter(dimension, value);
+        }
+
+        public FilterType lessThanEqual(Object value) {
+            return new LessThanEqualDimFilter(dimension, value);
+        }
+
+        public FilterType lookup(Object value) {
+            return new LookupDimFilter(dimension, value);
+        }
     }
 
-    private static class FieldType {
+    private static class AndDimFilter extends FilterType {
+        @JsonProperty
+        List<FilterType> fields = new ArrayList<>();
+
+        public AndDimFilter(FilterType... filterTypes) {
+            Preconditions.checkArgument(filterTypes.length > 0, "must be specified at least one value.");
+            this.type = "and";
+            this.fields = Lists.newArrayList(filterTypes);
+        }
+    }
+
+    private static class OrDimFilter extends FilterType {
+        @JsonProperty
+        List<FilterType> fields = new ArrayList<>();
+
+        public OrDimFilter(FilterType... filterTypes) {
+            Preconditions.checkArgument(filterTypes.length > 0, "must be specified at least one value.");
+            this.type = "or";
+            this.fields = Lists.newArrayList(filterTypes);
+        }
+    }
+
+    private static class DimFilter extends FilterType {
+        @JsonProperty
+        String dimension;
+    }
+
+    public static class FilterType {
+        @JsonProperty
         String type;
-
-        public String getType() {
-            return type;
-        }
-
-        public void setType(String type) {
-            this.type = type;
-        }
     }
 
-    private static class EqualField extends Field {
+    private static class EqualDimFilter extends DimFilter {
+        @JsonProperty
         Object value;
-        public EqualField(String dimension, Object value) {
+
+        public EqualDimFilter(String dimension, Object value) {
             this.type = "selector";
             this.dimension = dimension;
             this.value = value;
         }
     }
 
-    private static class NotEqualField extends FieldType {
-        EqualField field;
-        public NotEqualField(String dimension, Object value) {
-            super.type = "not";
-            this.field = new EqualField(dimension, value);
+    private static class NotEqualDimFilter extends FilterType {
+        @JsonProperty
+        EqualDimFilter field;
+
+        public NotEqualDimFilter(String dimension, Object value) {
+            this.type = "not";
+            this.field = new EqualDimFilter(dimension, value);
         }
     }
 
-    private static class InField extends Field {
+    private static class InDimFilter extends DimFilter {
+        @JsonProperty
         List values = new ArrayList<>();
-        public InField(String dimension, Object... values) {
+
+        public InDimFilter(String dimension, Object... values) {
+            Preconditions.checkArgument(values.length > 0, "must be specified at least one value.");
             this.type = "in";
             this.dimension = dimension;
             this.values = Lists.newArrayList(values);
         }
     }
 
-    private static class NotInField extends FieldType {
-        InField field;
-        public NotInField(String dimension, Object... values) {
-            super.type = "not";
-            field = new InField(dimension, values);
+    private static class NotInDimFilter extends FilterType {
+        @JsonProperty
+        InDimFilter field;
+
+        public NotInDimFilter(String dimension, Object... values) {
+            Preconditions.checkArgument(values.length > 0, "must be specified at least one value.");
+            this.type = "not";
+            field = new InDimFilter(dimension, values);
         }
     }
 
-    private static class GreaterThanEqualField extends BoundField {
+    private static class GreaterThanEqualDimFilter extends BoundDimFilter {
+        @JsonProperty
         Object lower;
-        public GreaterThanEqualField(String dimension, Object value) {
+
+        public GreaterThanEqualDimFilter(String dimension, Object value) {
             this.dimension = dimension;
             this.lower = value;
         }
     }
 
-    private static class GreaterThanField extends GreaterThanEqualField {
-        Boolean lowerStrict = true;
-        public GreaterThanField(String dimension, Object value) {
+    private static class GreaterThanDimFilter extends GreaterThanEqualDimFilter {
+        @JsonProperty
+        boolean lowerStrict;
+
+        public GreaterThanDimFilter(String dimension, Object value) {
             super(dimension, value);
+            lowerStrict = true;
         }
     }
 
-    private static class LessThanEqualField extends BoundField {
+    private static class LessThanEqualDimFilter extends BoundDimFilter {
+        @JsonProperty
         Object upper;
-        public LessThanEqualField(String dimension, Object value) {
+
+        public LessThanEqualDimFilter(String dimension, Object value) {
             this.dimension = dimension;
             this.upper = value;
         }
     }
 
-    private static class LessThanField extends LessThanEqualField {
-        Boolean upperStrict = true;
-        public LessThanField(String dimension, Object value) {
+    private static class LessThanDimFilter extends LessThanEqualDimFilter {
+        @JsonProperty
+        boolean upperStrict;
+
+        public LessThanDimFilter(String dimension, Object value) {
             super(dimension, value);
+            upperStrict = true;
         }
     }
 
-    private static class BoundField extends Field {
-        public BoundField() {
+    private static class BoundDimFilter extends DimFilter {
+        public BoundDimFilter() {
             this.type = "bound";
         }
     }
 
-    private static class LookupField extends Field {
+    private static class LookupDimFilter extends DimFilter {
+        @JsonProperty
         Object lookup;
-        public LookupField(String dimension, Object value) {
+
+        public LookupDimFilter(String dimension, Object value) {
             this.type = "lookup";
             this.dimension = dimension;
             this.lookup = value;

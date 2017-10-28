@@ -21,6 +21,10 @@ public class DataExporterTest {
                 .select(COLUMNS)
                 .from(DATA_SOURCE)
                 .limit(COUNT)
+                .where(
+                    ScanQuery.dimension("Operator").equal("电信"),
+                    ScanQuery.dimension("IP").in("222.71.50.44", "139.196.231.205")
+                )
                 .build();
 
         DataExporter.local()
