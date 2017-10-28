@@ -200,8 +200,8 @@ public class ScanQuery {
         EqualDimFilter field;
 
         public NotEqualDimFilter(String dimension, Object value) {
-            this.type = "not";
             this.field = new EqualDimFilter(dimension, value);
+            this.type = "not";
         }
     }
 
@@ -223,8 +223,8 @@ public class ScanQuery {
 
         public NotInDimFilter(String dimension, Object... values) {
             Preconditions.checkArgument(values.length > 0, "must be specified at least one value.");
-            this.type = "not";
             field = new InDimFilter(dimension, values);
+            this.type = "not";
         }
     }
 
