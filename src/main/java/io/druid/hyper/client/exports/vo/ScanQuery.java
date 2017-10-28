@@ -88,7 +88,6 @@ public class ScanQuery {
     @Override
     public String toString() {
         try {
-            System.out.println(jsonMapper.writeValueAsString(this));
             return jsonMapper.writeValueAsString(this);
         } catch (JsonProcessingException e) {
             return null;

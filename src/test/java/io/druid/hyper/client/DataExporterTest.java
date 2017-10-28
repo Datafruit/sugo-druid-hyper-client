@@ -23,9 +23,10 @@ public class DataExporterTest {
                 .limit(COUNT)
                 .where(
                     ScanQuery.dimension("Operator").equal("电信"),
-                        ScanQuery.or(ScanQuery.dimension("IP").in("222.71.50.44", "139.196.231.205"),
-                                     ScanQuery.dimension("EventScreen").notIn("日程表")
-                        )
+                    ScanQuery.or(
+                        ScanQuery.dimension("IP").in("222.71.50.44", "139.196.231.205"),
+                        ScanQuery.dimension("EventScreen").notIn("日程表")
+                    )
                 )
                 .build();
 
