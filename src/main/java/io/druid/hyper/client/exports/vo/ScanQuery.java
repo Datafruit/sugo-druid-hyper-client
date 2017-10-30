@@ -111,6 +111,7 @@ public class ScanQuery {
     public static class Filter {
         String dimension;
         private Filter(String dimension) {
+            Preconditions.checkNotNull(dimension, "dimension can not be null.");
             this.dimension = dimension;
         }
 
