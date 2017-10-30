@@ -1,6 +1,7 @@
 package io.druid.hyper.client.exports;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import io.druid.hyper.client.exports.vo.ScanQuery;
 import io.druid.hyper.client.util.JsonObjectIterator;
 import okhttp3.*;
@@ -29,6 +30,7 @@ public abstract class DataExporter implements Closeable {
     String server;
     String separator;
     ScanQuery query;
+    String sql;
     OutputStream outputStream;
 
     public static DataExporter local() {
@@ -41,7 +43,7 @@ public abstract class DataExporter implements Closeable {
 
     public void export() throws Exception {
         Preconditions.checkNotNull(server, "server can not be null.");
-        Preconditions.checkNotNull(query, "query can not be null.");
+        Preconditions.checkState(query != null || !Strings.isNullOrEmpty(sql), "query or sql can not be null.");
         Preconditions.checkState(filePath != null || outputStream != null, "export file or output stream can not be null.");
 
         long start = System.currentTimeMillis();
@@ -54,10 +56,18 @@ public abstract class DataExporter implements Closeable {
             init(outputStream);
         }
 
+        String queryStr = null;
+        if (query != null) {
+            queryStr = query.toString();
+        } else {
+//            queryStr = parse(sql);
+            // TODO: Parse sql to druid query json
+        }
+
         OkHttpClient client = (new OkHttpClient.Builder())
                 .connectTimeout(1800L, TimeUnit.SECONDS)
                 .readTimeout(1800L, TimeUnit.SECONDS).build();
-        RequestBody body = RequestBody.create(DEFAULT_MEDIA_TYPE, query.toString());
+        RequestBody body = RequestBody.create(DEFAULT_MEDIA_TYPE, queryStr);
         Request request = (new Request.Builder()).url(server).post(body).build();
         Response response = client.newCall(request).execute();
         InputStream in = response.body().byteStream();
@@ -148,6 +158,11 @@ public abstract class DataExporter implements Closeable {
 
     public DataExporter withQuery(ScanQuery query) {
         this.query = query;
+        return this;
+    }
+
+    public DataExporter withSql(String sql) {
+        this.sql = sql;
         return this;
     }
 }
