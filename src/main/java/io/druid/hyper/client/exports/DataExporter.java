@@ -161,7 +161,7 @@ public abstract class DataExporter implements Closeable {
         return this;
     }
 
-    public DataExporter withSql(String sql) {
+    public DataExporter withSQL(String sql) {
         this.sql = sql;
         return this;
     }
