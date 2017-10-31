@@ -214,7 +214,7 @@ public abstract class DataExporter implements Closeable {
         switch (exportType){
             case "csv": dataExporter.inCSVFormat();break;
             case "hive": dataExporter.inHiveFormat();break;
-            case "tsv": dataExporter.inHiveFormat();break;
+            case "tsv": dataExporter.inTSVFormat();break;
             default: System.out.println("unknown export type" + exportType); printUsage(); return;
         }
         dataExporter.export();
