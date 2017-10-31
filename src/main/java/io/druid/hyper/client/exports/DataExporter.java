@@ -1,8 +1,10 @@
 package io.druid.hyper.client.exports;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import io.druid.hyper.client.exports.vo.ScanQuery;
+import io.druid.hyper.client.util.HttpClientUtil;
 import io.druid.hyper.client.util.JsonObjectIterator;
 import okhttp3.*;
 import org.slf4j.Logger;
@@ -15,13 +17,14 @@ import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 public abstract class DataExporter implements Closeable {
     private static final Logger log = LoggerFactory.getLogger(DataExporter.class);
     private static final MediaType DEFAULT_MEDIA_TYPE = MediaType.parse("application/json; charset=utf-8");
     private static final String SERVER_SCHEMA = "http://%s/druid/v2?pretty";
-
+    private static final String PLYQL_SCHEMA = "http://%s/get-query";
     private static final String SEPARATOR_COMMA = ",";
     private static final String SEPARATOR_TAB = "\t";
     private static final String SEPARATOR_HIVE = "\001";
@@ -32,6 +35,7 @@ public abstract class DataExporter implements Closeable {
     ScanQuery query;
     String sql;
     OutputStream outputStream;
+    private String plyql;
 
     public static DataExporter local() {
         return new LocalDataExporter();
@@ -60,8 +64,7 @@ public abstract class DataExporter implements Closeable {
         if (query != null) {
             queryStr = query.toString();
         } else {
-//            queryStr = parse(sql);
-            // TODO: Parse sql to druid query json
+            queryStr = parse(sql);
         }
 
         OkHttpClient client = (new OkHttpClient.Builder())
@@ -97,6 +100,13 @@ public abstract class DataExporter implements Closeable {
 
         long end = System.currentTimeMillis();
         log.info("Export data successfully, cost [" + (end-start) + "] million seconds.");
+    }
+
+    private String parse(String sql) throws IOException {
+        String response = HttpClientUtil.post(plyql, String.format("{\"sql\":\"%s\",\"scanQuery\":true}", sql));
+        ObjectMapper objectMapper = new ObjectMapper();
+        Map<String,Object> resMap = objectMapper.readValue(response, Map.class);
+        return objectMapper.writeValueAsString(resMap.get("result"));
     }
 
     protected abstract void init(String filePath) throws IOException;
@@ -164,5 +174,53 @@ public abstract class DataExporter implements Closeable {
     public DataExporter withSQL(String sql) {
         this.sql = sql;
         return this;
+    }
+    public DataExporter withPylql(String plyql) {
+        this.plyql = String.format(PLYQL_SCHEMA, plyql);
+        return this;
+    }
+
+    public static void main(String[] args) throws Exception {
+       if(args.length < 5){
+           printUsage();
+           return;
+       }
+       String type = args[0];
+       String exportFile = args[1];
+       String brokerAddress = args[2];
+       String plyqlAddress = args[3];
+       String sql = args[4];
+
+        DataExporter dataExporter = null;
+       if (type.equals("file")){
+           dataExporter = DataExporter.local();
+       } else if (type.equals("hdfs")){
+           dataExporter = DataExporter.hdfs();
+       }
+       if (dataExporter == null)
+       {
+           System.out.println("unknown export destination" + type);
+           printUsage();
+           return;
+       }
+       dataExporter.fromServer(brokerAddress)
+                .withPylql(plyqlAddress)
+                .withSQL(sql).toFile(exportFile);
+
+        String exportType = "csv";
+        if (args.length > 5){
+            exportType = args[5];
+        }
+        switch (exportType){
+            case "csv": dataExporter.inCSVFormat();break;
+            case "hive": dataExporter.inHiveFormat();break;
+            case "tsv": dataExporter.inTSVFormat();break;
+            default: System.out.println("unknown export type" + exportType); printUsage(); return;
+        }
+        dataExporter.export();
+
+    }
+    private static void printUsage(){
+        System.out.println("Usage: DataExporter file|hdfs export_file broker_address plyql_address sql [export_type(hive|csv|tsv)]");
     }
 }
