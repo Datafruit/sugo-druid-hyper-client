@@ -103,7 +103,7 @@ public abstract class DataExporter implements Closeable {
     }
 
     private String parse(String sql) throws IOException {
-        String response = HttpClientUtil.post(plyql, String.format("{\"sql\":\"%s\",\"scanQuery\":true}", sql));
+        String response = HttpClientUtil.post(plyql, String.format("{\"sql\":\"%s\",\"scanQuery\":true,\"hasLimit\":false}", sql));
         ObjectMapper objectMapper = new ObjectMapper();
         Map<String,Object> resMap = objectMapper.readValue(response, Map.class);
         return objectMapper.writeValueAsString(resMap.get("result"));
