@@ -357,19 +357,24 @@ public class DataSender implements Closeable {
 
             for (;;) {
                 boolean sendFinished = true;
-                while (currentValues.isEmpty() && it.hasNext()) {
-                    Map.Entry<CacheKey, List<String>> entry = it.next();
-                    CacheKey cacheKey = entry.getKey();
-                    currentValues = entry.getValue();
-                    if (!currentValues.isEmpty()) {
-                        StringBuffer sb = new StringBuffer("There are still unsent data when closing, action [")
-                                .append(cacheKey.getAction()).append("], size [")
-                                .append(currentValues.size()).append("], partitionNum [")
-                                .append(cacheKey.getPartitionNum()).append("].");
-                        log.info(sb.toString());
-                        sendFinished = false;
-                        break;
+                if (currentValues.isEmpty()) {
+                    while (it.hasNext()) {
+                        // Make sure the current entry is empty, then continue to take the next
+                        Map.Entry<CacheKey, List<String>> entry = it.next();
+                        CacheKey cacheKey = entry.getKey();
+                        currentValues = entry.getValue();
+                        if (!currentValues.isEmpty()) {
+                            StringBuffer sb = new StringBuffer("There are still unsent data when closing, action [")
+                                    .append(cacheKey.getAction()).append("], size [")
+                                    .append(currentValues.size()).append("], partitionNum [")
+                                    .append(cacheKey.getPartitionNum()).append("].");
+                            log.info(sb.toString());
+                            sendFinished = false;
+                            break;
+                        }
                     }
+                } else {
+                    sendFinished = false;
                 }
 
                 if (!sendFinished) {
