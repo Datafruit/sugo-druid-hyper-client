@@ -18,10 +18,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -356,16 +353,18 @@ public class DataSender implements Closeable {
             Iterator<Map.Entry<CacheKey, List<String>>> it = dataCache.entrySet().iterator();
             log.info("Closing and flush remained " + dataCache.entrySet().size() + " cache entries.");
 
+            List<String> currentValues = Collections.emptyList();
+
             for (;;) {
                 boolean sendFinished = true;
-                while (it.hasNext()) {
+                while (currentValues.isEmpty() && it.hasNext()) {
                     Map.Entry<CacheKey, List<String>> entry = it.next();
                     CacheKey cacheKey = entry.getKey();
-                    List<String> valuesList = entry.getValue();
-                    if (!valuesList.isEmpty()) {
+                    currentValues = entry.getValue();
+                    if (!currentValues.isEmpty()) {
                         StringBuffer sb = new StringBuffer("There are still unsent data when closing, action [")
                                 .append(cacheKey.getAction()).append("], size [")
-                                .append(valuesList.size()).append("], partitionNum [")
+                                .append(currentValues.size()).append("], partitionNum [")
                                 .append(cacheKey.getPartitionNum()).append("].");
                         log.info(sb.toString());
                         sendFinished = false;
