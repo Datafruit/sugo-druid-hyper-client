@@ -175,6 +175,7 @@ public abstract class DataExporter implements Closeable {
         this.sql = sql;
         return this;
     }
+
     public DataExporter withPylql(String plyql) {
         this.plyql = String.format(PLYQL_SCHEMA, plyql);
         return this;
@@ -192,13 +193,12 @@ public abstract class DataExporter implements Closeable {
        String sql = args[4];
 
         DataExporter dataExporter = null;
-       if (type.equals("file")){
+       if (type.equals("file")) {
            dataExporter = DataExporter.local();
-       } else if (type.equals("hdfs")){
+       } else if (type.equals("hdfs")) {
            dataExporter = DataExporter.hdfs();
        }
-       if (dataExporter == null)
-       {
+       if (dataExporter == null) {
            System.out.println("unknown export destination" + type);
            printUsage();
            return;
@@ -211,15 +211,20 @@ public abstract class DataExporter implements Closeable {
         if (args.length > 5){
             exportType = args[5];
         }
-        switch (exportType){
-            case "csv": dataExporter.inCSVFormat();break;
-            case "hive": dataExporter.inHiveFormat();break;
-            case "tsv": dataExporter.inTSVFormat();break;
-            default: System.out.println("unknown export type" + exportType); printUsage(); return;
+        if ("csv".equals(exportType)) {
+            dataExporter.inCSVFormat();
+        } else if ("tsv".equals(exportType)) {
+            dataExporter.inTSVFormat();
+        } else if ("hive".equals(exportType)) {
+            dataExporter.inHiveFormat();
+        } else {
+            System.out.println("unknown export type" + exportType);
+            printUsage();
+            return;
         }
         dataExporter.export();
-
     }
+
     private static void printUsage(){
         System.out.println("Usage: DataExporter file|hdfs export_file broker_address plyql_address sql [export_type(hive|csv|tsv)]");
     }
