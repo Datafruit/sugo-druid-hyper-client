@@ -381,7 +381,9 @@ public class DataSender implements Closeable {
                         log.info("Wait 1 second for sending remained data, then enter checking of the next duration.");
                         Thread.sleep(1000);
                     } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
+                        try {
+                            Thread.currentThread().interrupt();
+                        } catch (Exception ignore) {}
                     }
                 } else {
                     log.info("All remained data are sent finished, begin to shutdown cacheFlusher.");
@@ -393,9 +395,14 @@ public class DataSender implements Closeable {
                 cacheFlusher.shutdownNow();
                 Preconditions.checkState(cacheFlusher.awaitTermination(1, TimeUnit.MINUTES), "cacheFlusher not terminated");
                 log.info("Shutdown cacheFlusher successfully!");
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                log.error("Failed to shutdown cacheFlusher during close()");
+            } catch (Exception e) {
+                try {
+                    Thread.currentThread().interrupt();
+                } catch (Exception ignore) {}
+
+                log.error("Failed to shutdown cacheFlusher during close().", e);
+            } finally {
+                cacheFlusher = null;
             }
         }
     }

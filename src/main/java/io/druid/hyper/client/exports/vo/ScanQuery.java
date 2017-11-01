@@ -154,7 +154,7 @@ public class ScanQuery {
 
     private static class AndDimFilter extends FilterType {
         @JsonProperty
-        List<FilterType> fields = new ArrayList<>();
+        List<FilterType> fields = new ArrayList<FilterType>();
 
         public AndDimFilter(FilterType... filterTypes) {
             Preconditions.checkArgument(filterTypes.length > 0, "must be specified at least one value.");
@@ -165,7 +165,7 @@ public class ScanQuery {
 
     private static class OrDimFilter extends FilterType {
         @JsonProperty
-        List<FilterType> fields = new ArrayList<>();
+        List<FilterType> fields = new ArrayList<FilterType>();
 
         public OrDimFilter(FilterType... filterTypes) {
             Preconditions.checkArgument(filterTypes.length > 0, "must be specified at least one value.");
@@ -207,7 +207,7 @@ public class ScanQuery {
 
     private static class InDimFilter extends DimFilter {
         @JsonProperty
-        List values = new ArrayList<>();
+        List values = new ArrayList<Object>();
 
         public InDimFilter(String dimension, Object... values) {
             Preconditions.checkArgument(values.length > 0, "must be specified at least one value.");
