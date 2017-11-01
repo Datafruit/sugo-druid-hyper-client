@@ -357,9 +357,8 @@ public class DataSender implements Closeable {
 
             for (;;) {
                 boolean sendFinished = true;
-                if (currentValues.isEmpty()) {
+                if (currentValues.isEmpty()) { // Make sure the current entry is empty, then continue to take the next
                     while (it.hasNext()) {
-                        // Make sure the current entry is empty, then continue to take the next
                         Map.Entry<CacheKey, List<String>> entry = it.next();
                         CacheKey cacheKey = entry.getKey();
                         currentValues = entry.getValue();
