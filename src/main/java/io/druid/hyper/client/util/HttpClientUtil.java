@@ -10,7 +10,7 @@ public class HttpClientUtil {
     private static final long DEFAULT_TIME_OUT = 30 * 60; // 30 minutes
     private static final MediaType DEFAULT_MEDIA_TYPE = MediaType.parse("application/json; charset=utf-8");
 
-    private static final OkHttpClient client = new OkHttpClient.Builder()
+    private static final OkHttpClient HTTP_CLIENT = new OkHttpClient.Builder()
             .connectTimeout(DEFAULT_TIME_OUT, TimeUnit.SECONDS)
             .readTimeout(DEFAULT_TIME_OUT, TimeUnit.SECONDS)
             .build();
@@ -18,7 +18,7 @@ public class HttpClientUtil {
     public static String get(String url) throws IOException {
         Request request = new Request.Builder().url(url).build();
 
-        Response response = client.newCall(request).execute();
+        Response response = HTTP_CLIENT.newCall(request).execute();
         String result = response.body().string();
 
         return result;
@@ -28,7 +28,7 @@ public class HttpClientUtil {
         RequestBody body = RequestBody.create(DEFAULT_MEDIA_TYPE, jsonData);
         Request request = new Request.Builder().url(url).post(body).build();
 
-        Response response = client.newCall(request).execute();
+        Response response = HTTP_CLIENT.newCall(request).execute();
         String result = response.body().string();
 
         return result;
