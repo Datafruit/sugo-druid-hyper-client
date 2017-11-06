@@ -280,7 +280,7 @@ public class DataSender implements Closeable {
 
     private void initializeFlusher() {
         cacheFlusher = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder()
-                        .setNameFormat("cache-flush-thread").build());
+                        .setNameFormat("cache-flush-thread").setDaemon(true).build());
 
         cacheFlusher.scheduleAtFixedRate(
                 new Runnable() {
@@ -395,14 +395,13 @@ public class DataSender implements Closeable {
             }
 
             try {
+                if (context != null) {
+                    context.progress();
+                }
                 cacheFlusher.shutdownNow();
-                Preconditions.checkState(cacheFlusher.awaitTermination(1, TimeUnit.MINUTES), "cacheFlusher not terminated");
+                Preconditions.checkState(cacheFlusher.awaitTermination(2, TimeUnit.MINUTES), "cacheFlusher not terminated");
                 log.info("Shutdown cacheFlusher successfully!");
             } catch (Exception e) {
-                try {
-                    Thread.currentThread().interrupt();
-                } catch (Exception ignore) {}
-
                 log.error("Failed to shutdown cacheFlusher during close().", e);
             } finally {
                 cacheFlusher = null;
