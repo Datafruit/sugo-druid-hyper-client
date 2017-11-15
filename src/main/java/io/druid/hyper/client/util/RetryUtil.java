@@ -11,7 +11,7 @@ import java.util.concurrent.Callable;
 
 public class RetryUtil {
     private static final Logger log = LoggerFactory.getLogger(RetryUtil.class);
-
+    public static final int MAX_TRY_TIMES = 3;
     /**
      * Retry an operation using fuzzy exponentially increasing backoff. The wait time after the nth failed attempt is
      * min(60000ms, 1000ms * pow(2, n - 1)), fuzzed by a number drawn from a Gaussian distribution with mean 0 and

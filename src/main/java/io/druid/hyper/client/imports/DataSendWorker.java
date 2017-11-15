@@ -3,6 +3,7 @@ package io.druid.hyper.client.imports;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Predicate;
 import io.druid.hyper.client.imports.input.BatchRecord;
+import io.druid.hyper.client.util.HRegionServerLocator;
 import io.druid.hyper.client.util.HttpClientUtil;
 import io.druid.hyper.client.util.RetryUtil;
 import org.slf4j.Logger;
@@ -14,7 +15,6 @@ import java.util.concurrent.Callable;
 public class DataSendWorker {
 
     private static final Logger log = LoggerFactory.getLogger(DataSendWorker.class);
-    private static final int MAX_TRY_TIMES = 3;
     private static final String SEND_DATA_URL = "http://%s/druid/regionServer/v1/push";
     private static final ObjectMapper jsonMapper = new ObjectMapper();
     private final HRegionServerLocator serverLocator;
@@ -57,7 +57,7 @@ public class DataSendWorker {
                     return apply(input.getCause());
                 }
             },
-            MAX_TRY_TIMES
+            RetryUtil.MAX_TRY_TIMES
         );
     }
 

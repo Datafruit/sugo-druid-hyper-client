@@ -1,4 +1,4 @@
-package io.druid.hyper.client.imports;
+package io.druid.hyper.client.util;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
