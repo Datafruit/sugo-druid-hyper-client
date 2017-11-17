@@ -59,5 +59,7 @@ public class DataExporterTest {
     public static void main(String[] args) throws Exception {
         DataExporterTest exporterTest = new DataExporterTest();
         exporterTest.exportToLocal();
+//        exporterTest.exportToLocalUseSQL();
+//        exporterTest.exportToHdfs();
     }
 }
