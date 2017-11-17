@@ -102,11 +102,22 @@ public abstract class DataExporter implements Closeable {
         log.info("Export data successfully, cost [" + (end-start) + "] million seconds.");
     }
 
-    private String parse(String sql) throws IOException {
-        String response = HttpClientUtil.post(plyql, String.format("{\"sql\":\"%s\",\"scanQuery\":true,\"hasLimit\":false}", sql));
-        ObjectMapper objectMapper = new ObjectMapper();
-        Map<String,Object> resMap = objectMapper.readValue(response, Map.class);
-        return objectMapper.writeValueAsString(resMap.get("result"));
+    private String parse(String sql) throws Exception {
+        String response = HttpClientUtil.post(plyql, String.format("{\"sql\":\"%s\",\"scanQuery\":true,\"hasLimit\":true}", sql));
+        Map<String, Object> resMap = ScanQuery.jsonMapper.readValue(response, Map.class);
+        Map<String, Object> result = (Map<String, Object>) resMap.get("result");
+        if (resMap == null || result == null) {
+            throw new Exception("Parse sql error: " + response);
+        }
+
+        Map<String, Object> context = (Map<String, Object>) result.get("context");
+        context.put("timeout", ScanQuery.DEFAULT_TIMEOUT);
+
+        if (result.get("limit") == null) {
+            result.put("limit", Integer.MAX_VALUE);
+        }
+
+        return ScanQuery.jsonMapper.writeValueAsString(result);
     }
 
     protected abstract void init(String filePath) throws IOException;
@@ -176,35 +187,35 @@ public abstract class DataExporter implements Closeable {
         return this;
     }
 
-    public DataExporter withPylql(String plyql) {
+    public DataExporter usePylql(String plyql) {
         this.plyql = String.format(PLYQL_SCHEMA, plyql);
         return this;
     }
 
     public static void main(String[] args) throws Exception {
-       if(args.length < 5){
-           printUsage();
-           return;
-       }
-       String type = args[0];
-       String exportFile = args[1];
-       String brokerAddress = args[2];
-       String plyqlAddress = args[3];
-       String sql = args[4];
+        if(args.length < 5){
+            printUsage();
+            return;
+        }
+        String type = args[0];
+        String exportFile = args[1];
+        String brokerAddress = args[2];
+        String plyqlAddress = args[3];
+        String sql = args[4];
 
         DataExporter dataExporter = null;
-       if (type.equals("file")) {
-           dataExporter = DataExporter.local();
-       } else if (type.equals("hdfs")) {
-           dataExporter = DataExporter.hdfs();
-       }
-       if (dataExporter == null) {
-           System.out.println("unknown export destination" + type);
-           printUsage();
-           return;
-       }
-       dataExporter.fromServer(brokerAddress)
-                .withPylql(plyqlAddress)
+        if (type.equals("file")) {
+            dataExporter = DataExporter.local();
+        } else if (type.equals("hdfs")) {
+            dataExporter = DataExporter.hdfs();
+        }
+        if (dataExporter == null) {
+            System.out.println("unknown export destination" + type);
+            printUsage();
+            return;
+        }
+        dataExporter.fromServer(brokerAddress)
+                .usePylql(plyqlAddress)
                 .withSQL(sql).toFile(exportFile);
 
         String exportType = "csv";

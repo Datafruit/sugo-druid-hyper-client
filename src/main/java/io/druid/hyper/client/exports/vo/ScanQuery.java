@@ -14,7 +14,8 @@ import java.util.Map;
 
 public class ScanQuery {
 
-    private static final ObjectMapper jsonMapper = new ObjectMapper();
+    public static final ObjectMapper jsonMapper = new ObjectMapper();
+    public static final int DEFAULT_TIMEOUT = 900000;
 
     /** changeless **/
     @JsonProperty
@@ -26,7 +27,7 @@ public class ScanQuery {
     @JsonProperty
     private List<String> intervals = Arrays.asList("1000/3000");
     @JsonProperty
-    private Map context = ImmutableMap.of("timeout", 900000);
+    private Map context = ImmutableMap.of("timeout", DEFAULT_TIMEOUT);
 
     /** dynamic **/
     @JsonProperty

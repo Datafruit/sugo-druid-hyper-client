@@ -9,25 +9,18 @@ import java.util.List;
 
 public class DataExporterTest {
 
-    private static final String SERVER = "192.168.0.212:8082";
-    private static final String LOCAL_FILE = "E:\\data2\\data3\\wuxianjiRT.txt";
+    private static final String SERVER = "192.168.0.215:8082";
+    private static final String LOCAL_FILE = "F:\\fxj_test.txt";
     private static final String REMOTE_FILE = "/hadoop/data1/wuxianjiRT.txt";
-    private static final String DATA_SOURCE = "wuxianjiRT";
-    private static final List<String> COLUMNS = Arrays.asList("SessionID", "Source", "Referrer", "Operator", "OsScreen", "Media", "IP", "UserID", "EventScreen", "Nation");
-    private static final int COUNT = 1000;
+    private static final String DATA_SOURCE = "fxj_test";
+    private static final List<String> COLUMNS = Arrays.asList("app_id");
+    private static final int COUNT = 100000000;
 
     public void  exportToLocal() throws Exception {
         ScanQuery query = ScanQuery.builder()
                 .select(COLUMNS)
                 .from(DATA_SOURCE)
                 .limit(COUNT)
-                .where(
-                    ScanQuery.dimension("Operator").equal("电信"),
-                    ScanQuery.or(
-                        ScanQuery.dimension("IP").in("222.71.50.44", "139.196.231.205"),
-                        ScanQuery.dimension("EventScreen").notIn("日程表")
-                    )
-                )
                 .build();
 
         DataExporter.local()
@@ -35,6 +28,16 @@ public class DataExporterTest {
                 .toFile(LOCAL_FILE)
                 .inCSVFormat()
                 .withQuery(query)
+                .export();
+    }
+
+    public void  exportToLocalUseSQL() throws Exception {
+        DataExporter.local()
+                .fromServer(SERVER)
+                .toFile("D:\\fxj_test.csv")
+                .inCSVFormat()
+                .withSQL("select id,name,class from fxj_test")
+                .usePylql("192.168.0.215:8001")
                 .export();
     }
 
@@ -56,6 +59,5 @@ public class DataExporterTest {
     public static void main(String[] args) throws Exception {
         DataExporterTest exporterTest = new DataExporterTest();
         exporterTest.exportToLocal();
-//        exporterTest.exportToHdfs();
     }
 }
