@@ -1,6 +1,5 @@
 package io.druid.hyper.client.exports;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import io.druid.hyper.client.exports.vo.ScanQuery;
@@ -64,7 +63,7 @@ public abstract class DataExporter implements Closeable {
         if (query != null) {
             queryStr = query.toString();
         } else {
-            Preconditions.checkNotNull(plyql, "Must specify plyql address for parsing SQL.");
+            Preconditions.checkState(!Strings.isNullOrEmpty(plyql), "Must specify plyql address with method 'usePylql' for parsing SQL.");
             queryStr = parseSQL(sql);
         }
 
@@ -104,11 +103,13 @@ public abstract class DataExporter implements Closeable {
     }
 
     private String parseSQL(String sql) throws Exception {
-        String response = HttpClientUtil.post(plyql, String.format("{\"sql\":\"%s\",\"scanQuery\":true,\"hasLimit\":true}", sql));
+        String plyqlQueryUrl = String.format(PLYQL_SCHEMA, plyql);
+        String response = HttpClientUtil.post(plyqlQueryUrl, String.format("{\"sql\":\"%s\",\"scanQuery\":true,\"hasLimit\":true}", sql));
         Map<String, Object> resMap = ScanQuery.jsonMapper.readValue(response, Map.class);
         Map<String, Object> result = (Map<String, Object>) resMap.get("result");
         if (resMap == null || result == null) {
-            throw new Exception("Parse sql error: " + response);
+            throw new Exception("Parse sql error: " + response + ".\n Please check your plyql [" + plyql + "] is correct? " +
+                    "\n Or your sql [" + sql + "] grammar is correct?");
         }
 
         Map<String, Object> context = (Map<String, Object>) result.get("context");
@@ -189,7 +190,7 @@ public abstract class DataExporter implements Closeable {
     }
 
     public DataExporter usePylql(String plyql) {
-        this.plyql = String.format(PLYQL_SCHEMA, plyql);
+        this.plyql = plyql;
         return this;
     }
 
