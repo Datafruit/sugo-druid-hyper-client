@@ -1,6 +1,5 @@
 package io.druid.hyper.client.exports;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import io.druid.hyper.client.exports.vo.ScanQuery;
