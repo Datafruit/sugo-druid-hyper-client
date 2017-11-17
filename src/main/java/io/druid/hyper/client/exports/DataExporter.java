@@ -64,7 +64,8 @@ public abstract class DataExporter implements Closeable {
         if (query != null) {
             queryStr = query.toString();
         } else {
-            queryStr = parse(sql);
+            Preconditions.checkNotNull(plyql, "Must specify plyql address for parsing SQL.");
+            queryStr = parseSQL(sql);
         }
 
         OkHttpClient client = (new OkHttpClient.Builder())
@@ -102,7 +103,7 @@ public abstract class DataExporter implements Closeable {
         log.info("Export data successfully, cost [" + (end-start) + "] million seconds.");
     }
 
-    private String parse(String sql) throws Exception {
+    private String parseSQL(String sql) throws Exception {
         String response = HttpClientUtil.post(plyql, String.format("{\"sql\":\"%s\",\"scanQuery\":true,\"hasLimit\":true}", sql));
         Map<String, Object> resMap = ScanQuery.jsonMapper.readValue(response, Map.class);
         Map<String, Object> result = (Map<String, Object>) resMap.get("result");
