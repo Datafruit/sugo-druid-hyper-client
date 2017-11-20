@@ -19,6 +19,9 @@
 package io.druid.hyper.hive.io;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
+import com.google.common.collect.Lists;
 import io.druid.hyper.client.imports.DataSender;
 import io.druid.hyper.hive.serde.DruidWritable;
 import org.apache.hadoop.conf.Configuration;
@@ -30,7 +33,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 public class DruidRecordWriter implements RecordWriter<NullWritable, DruidWritable>,
         org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter {
@@ -38,18 +43,21 @@ public class DruidRecordWriter implements RecordWriter<NullWritable, DruidWritab
   protected static final Logger LOG = LoggerFactory.getLogger(DruidRecordWriter.class);
 
   private final String datasource;
-  private final String HIVE_DRUID_HMASTER_DEFAULT_ADDRESS = "druid.hmaster.address.default";
   private final DataSender dataSender;
 
   public DruidRecordWriter(
-          String datasource,
+          Properties tableProperties,
           Configuration conf
   ) {
+    this.datasource = Preconditions.checkNotNull(tableProperties.getProperty(Constants.DRUID_DATA_SOURCE), "data source is null");
 
-    this.datasource = Preconditions.checkNotNull(datasource, "data source is null");
-    String hmaster =  Preconditions.checkNotNull(conf.get(HIVE_DRUID_HMASTER_DEFAULT_ADDRESS), "hmaster is null");
-    LOG.info("hmaster address:" + hmaster);
-    dataSender = DataSender.builder().toServer(hmaster).ofDataSource(datasource).build();
+    String masterStr = conf.get(Constants.HIVE_DRUID_HMASTER_DEFAULT_ADDRESS);
+    masterStr = Strings.isNullOrEmpty(masterStr) ? tableProperties.getProperty(Constants.HIVE_DRUID_HMASTER_DEFAULT_ADDRESS) : masterStr;
+    Preconditions.checkNotNull(masterStr, "hmaster is null");
+    Iterable<String> masterIt = Splitter.on(",").omitEmptyStrings().trimResults().split(masterStr);
+    List<String> masters = Lists.newArrayList(masterIt);
+
+    dataSender = DataSender.builder().toServer(masters.get(0)).ofDataSource(datasource).build();
   }
 
   @Override

@@ -12,6 +12,7 @@ public class Constants {
     public static final String DRUID_HIVE_OUTPUT_FORMAT =
             "org.apache.hadoop.hive.druid.io.DruidOutputFormat";
     public static final String DRUID_DATA_SOURCE = "druid.datasource";
+    public static final String HIVE_DRUID_HMASTER_DEFAULT_ADDRESS = "druid.hmaster.address.default";
     public static final String DRUID_SEGMENT_GRANULARITY = "druid.segment.granularity";
     public static final String DRUID_TIMESTAMP_GRANULARITY_COL_NAME = "__time_granularity";
     public static final String DRUID_QUERY_JSON = "druid.query.json";
