@@ -24,19 +24,20 @@ public class DataSendWorker {
     }
 
     public void send(final BatchRecord batchRecord) throws Exception {
+        final String regionServer = serverLocator.getServer(batchRecord.getPartitionNum());
         RetryUtil.retry(new Callable<Void>() {
                 @Override
                 public Void call() throws IOException {
-                    String reginServer = serverLocator.getServer(batchRecord.getPartitionNum());
-                    String sendUrl = String.format(SEND_DATA_URL, reginServer);
+                    String sendUrl = String.format(SEND_DATA_URL, regionServer);
                     HttpClientUtil.post(sendUrl, jsonMapper.writeValueAsString(batchRecord));
-                    log.info("Send a batch record to host [" + reginServer + "] successfully!");
+                    log.info("^-^ Send a batch record to host [" + regionServer + "] successfully!");
                     return null;
                 }
             },
             new Callable<Void>() {
                 @Override
                 public Void call() throws Exception {
+                    log.error("Failed to send record to host [" + regionServer + "]!");
                     serverLocator.reload();
                     log.info("Retry to reload region server info.");
                     return null;
