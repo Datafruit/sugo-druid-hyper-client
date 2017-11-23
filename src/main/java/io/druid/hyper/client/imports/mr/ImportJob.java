@@ -13,6 +13,8 @@ import org.apache.hadoop.util.GenericOptionsParser;
 
 public class ImportJob {
 
+    public static final String MAP_KEY_SPECULATIVE = "mapreduce.map.speculative";
+
     public static final String KEY_DATASORUCE = "datasource";
     public static final String KEY_HMASTER_HOST = "hmaster";
     public static final String KEY_ACTION = "action";
@@ -39,6 +41,7 @@ public class ImportJob {
         String action = remainingArgs[5];
         String columns = remainingArgs.length > 6 ? remainingArgs[6] : StringUtils.EMPTY;
 
+        conf.setBoolean(MAP_KEY_SPECULATIVE, false);
         conf.set(KEY_DATASORUCE, datasource);
         conf.set(KEY_HMASTER_HOST, hmaster);
         conf.set(KEY_ACTION, action);

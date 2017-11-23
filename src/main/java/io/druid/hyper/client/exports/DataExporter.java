@@ -71,8 +71,14 @@ public abstract class DataExporter implements Closeable {
                 .connectTimeout(1800L, TimeUnit.SECONDS)
                 .readTimeout(1800L, TimeUnit.SECONDS).build();
         RequestBody body = RequestBody.create(DEFAULT_MEDIA_TYPE, queryStr);
-        Request request = (new Request.Builder()).url(server).post(body).build();
+        Request request = (new Request.Builder()).url(String.format(SERVER_SCHEMA, server)).post(body).build();
         Response response = client.newCall(request).execute();
+        int rtnCode = response.code();
+        if (rtnCode != 200) {
+            String errorMsg = "Request server failed, please check the server address [" + server
+                    + "] you specified is correct? The most likely address is something like 'brokerHost:8082'.";
+            throw new Exception(errorMsg);
+        }
         InputStream in = response.body().byteStream();
 
         try {
@@ -148,7 +154,7 @@ public abstract class DataExporter implements Closeable {
     }
 
     public DataExporter fromServer(String server) {
-        this.server = String.format(SERVER_SCHEMA, server);
+        this.server = server;
         return this;
     }
 
