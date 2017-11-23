@@ -41,7 +41,7 @@ public class GetQueryClient {
         Map<String, Object> res = RetryUtil.retry(
                 new Callable<Map<String, Object>>() {
                     @Override
-                    public Map<String, Object> call() throws IOException {
+                    public Map<String, Object> call() throws Exception {
                         int partition = serverLocator.getPartitions();
                         int partitionNum = PartitionUtil.getPartitionNum(key, partition);
                         GetQuery getQuery = new GetQuery(dataSource, key, partitionNum, columns);

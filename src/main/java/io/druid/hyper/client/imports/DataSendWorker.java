@@ -27,7 +27,7 @@ public class DataSendWorker {
         final String regionServer = serverLocator.getServer(batchRecord.getPartitionNum());
         RetryUtil.retry(new Callable<Void>() {
                 @Override
-                public Void call() throws IOException {
+                public Void call() throws Exception {
                     String sendUrl = String.format(SEND_DATA_URL, regionServer);
                     HttpClientUtil.post(sendUrl, jsonMapper.writeValueAsString(batchRecord));
                     log.info("^-^ Send a batch record to host [" + regionServer + "] successfully!");

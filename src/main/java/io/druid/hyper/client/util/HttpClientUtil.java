@@ -24,11 +24,15 @@ public class HttpClientUtil {
         return result;
     }
 
-    public static String post(String url, String jsonData) throws IOException {
+    public static String post(String url, String jsonData) throws Exception {
         RequestBody body = RequestBody.create(DEFAULT_MEDIA_TYPE, jsonData);
         Request request = new Request.Builder().url(url).post(body).build();
 
         Response response = HTTP_CLIENT.newCall(request).execute();
+        int rtnCode = response.code();
+        if (rtnCode != 200) {
+            throw new Exception("Post data failed.");
+        }
         String result = response.body().string();
 
         return result;
