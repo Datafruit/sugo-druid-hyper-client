@@ -46,7 +46,7 @@ public class DruidOutputFormat<K, V> implements HiveOutputFormat<K, DruidWritabl
           Properties tableProperties,
           Progressable progress
   ) throws IOException {
-    return new DruidRecordWriter(tableProperties, jc);
+    return new DruidRecordWriter(tableProperties, jc, progress);
   }
 
   @Override

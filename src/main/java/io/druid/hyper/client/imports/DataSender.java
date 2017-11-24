@@ -129,10 +129,6 @@ public class DataSender implements Closeable {
         }
     }
 
-    public void setReporter(Reporter reporter) {
-        this.reporter = reporter;
-    }
-
     /**
      * A single row that to be added to UIndex, the column values are separated with delimiter
      * which is passed to UIndex when you create the data source.

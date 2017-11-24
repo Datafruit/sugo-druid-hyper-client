@@ -29,6 +29,7 @@ import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.RecordWriter;
 import org.apache.hadoop.mapred.Reporter;
+import org.apache.hadoop.util.Progressable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,10 +46,7 @@ public class DruidRecordWriter implements RecordWriter<NullWritable, DruidWritab
   private final String datasource;
   private final DataSender dataSender;
 
-  public DruidRecordWriter(
-          Properties tableProperties,
-          Configuration conf
-  ) {
+  public DruidRecordWriter(Properties tableProperties, Configuration conf, Progressable progress) {
     this.datasource = Preconditions.checkNotNull(tableProperties.getProperty(Constants.DRUID_DATA_SOURCE), "data source is null");
 
     String masterStr = conf.get(Constants.HIVE_DRUID_HMASTER_DEFAULT_ADDRESS);
@@ -57,7 +55,7 @@ public class DruidRecordWriter implements RecordWriter<NullWritable, DruidWritab
     Iterable<String> masterIt = Splitter.on(",").omitEmptyStrings().trimResults().split(masterStr);
     List<String> masters = Lists.newArrayList(masterIt);
 
-    dataSender = DataSender.builder().toServer(masters.get(0)).ofDataSource(datasource).build();
+    dataSender = DataSender.builder().toServer(masters.get(0)).ofDataSource(datasource).withReporter(progress).build();
   }
 
   @Override
@@ -84,7 +82,6 @@ public class DruidRecordWriter implements RecordWriter<NullWritable, DruidWritab
 
   @Override
   public void close(Reporter reporter) throws IOException {
-    dataSender.setReporter(reporter);
     this.close(true);
   }
 
