@@ -37,7 +37,7 @@ public class GetQueryClient {
         return getRow(key, DEFAULT_COLUMNS);
     }
 
-    public Map<String, Object> getRow(String key, List<String> columns)throws Exception {
+    public Map<String, Object> getRow(final String key, final List<String> columns)throws Exception {
         Map<String, Object> res = RetryUtil.retry(
                 new Callable<Map<String, Object>>() {
                     @Override
