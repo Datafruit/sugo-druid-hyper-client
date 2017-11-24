@@ -84,6 +84,7 @@ public class DruidRecordWriter implements RecordWriter<NullWritable, DruidWritab
 
   @Override
   public void close(Reporter reporter) throws IOException {
+    dataSender.setReporter(reporter);
     this.close(true);
   }
 

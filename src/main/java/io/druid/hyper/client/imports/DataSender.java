@@ -12,6 +12,7 @@ import io.druid.hyper.client.imports.input.HyperAddRecord;
 import io.druid.hyper.client.imports.input.HyperDeleteRecord;
 import io.druid.hyper.client.imports.input.HyperUpdateRecord;
 import io.druid.hyper.client.util.PartitionUtil;
+import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,6 +40,7 @@ public class DataSender implements Closeable {
     private TaskAttemptContext context;
     private int updateThreshold;
     private int addThreshold = DEFAULT_SEND_THRESHOLD;
+    private Reporter reporter;
 
     private DataSender(String hmaster, String dataSource, TaskAttemptContext context) {
         this(hmaster, dataSource, DEFAULT_SEND_THRESHOLD, context);
@@ -381,6 +383,9 @@ public class DataSender implements Closeable {
                         if (context != null) {
                             context.progress();
                         }
+                        if (reporter != null){
+                            reporter.progress();
+                        }
                         log.info("Wait 1 second for sending remained data, then enter checking of the next duration.");
                         Thread.sleep(1000);
                     } catch (InterruptedException e) {
@@ -397,6 +402,9 @@ public class DataSender implements Closeable {
             try {
                 if (context != null) {
                     context.progress();
+                }
+                if (reporter != null){
+                    reporter.progress();
                 }
                 cacheFlusher.shutdownNow();
                 Preconditions.checkState(cacheFlusher.awaitTermination(2, TimeUnit.MINUTES), "cacheFlusher not terminated");
@@ -475,5 +483,10 @@ public class DataSender implements Closeable {
             result = 31 * result + (action != null ? action.hashCode() : 0);
             return result;
         }
+    }
+
+
+    public void setReporter(Reporter reporter) {
+        this.reporter = reporter;
     }
 }
