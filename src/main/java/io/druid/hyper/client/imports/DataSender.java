@@ -14,6 +14,7 @@ import io.druid.hyper.client.imports.input.HyperUpdateRecord;
 import io.druid.hyper.client.util.PartitionUtil;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
+import org.apache.hadoop.util.Progressable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,21 +38,20 @@ public class DataSender implements Closeable {
 
     private ScheduledExecutorService cacheFlusher;
     private String dataSource;
-    private TaskAttemptContext context;
+    private Progressable reporter;
     private int updateThreshold;
     private int addThreshold = DEFAULT_SEND_THRESHOLD;
-    private Reporter reporter;
 
-    private DataSender(String hmaster, String dataSource, TaskAttemptContext context) {
-        this(hmaster, dataSource, DEFAULT_SEND_THRESHOLD, context);
+    private DataSender(String hmaster, String dataSource, Progressable reporter) {
+        this(hmaster, dataSource, DEFAULT_SEND_THRESHOLD, reporter);
     }
 
-    private DataSender(String hmaster, String dataSource, int threshold, TaskAttemptContext context) {
+    private DataSender(String hmaster, String dataSource, int threshold, Progressable reporter) {
         this.dataSource = dataSource;
         this.sendWorker = new DataSendWorker(hmaster, dataSource);
         this.dataSourceSpecLoader = new DataSourceSpecLoader(hmaster, dataSource);
         this.updateThreshold = threshold;
-        this.context = context;
+        this.reporter = reporter;
         initializeFlusher();
     }
 
@@ -63,7 +63,7 @@ public class DataSender implements Closeable {
         private static Map<Builder, DataSender> senderCache = Maps.newConcurrentMap();
         private String dataSource;
         private String server;
-        private TaskAttemptContext context;
+        private Progressable reporter;
 
         public Builder ofDataSource(String dataSource) {
             this.dataSource = dataSource;
@@ -75,8 +75,8 @@ public class DataSender implements Closeable {
             return this;
         }
 
-        public Builder withContext(TaskAttemptContext context) {
-            this.context = context;
+        public Builder withReporter(Progressable reporter) {
+            this.reporter = reporter;
             return this;
         }
 
@@ -86,7 +86,7 @@ public class DataSender implements Closeable {
 
             DataSender sender = senderCache.get(this);
             if (sender == null) {
-                sender = new DataSender(server, dataSource, context);
+                sender = new DataSender(server, dataSource, reporter);
 //                senderCache.putIfAbsent(this, sender);
                 senderCache.put(this, sender);
                 sender = senderCache.get(this); // Get again to make sure sender is not null.
@@ -127,6 +127,10 @@ public class DataSender implements Closeable {
             result = 31 * result + (dataSource != null ? dataSource.hashCode() : 0);
             return result;
         }
+    }
+
+    public void setReporter(Reporter reporter) {
+        this.reporter = reporter;
     }
 
     /**
@@ -380,9 +384,6 @@ public class DataSender implements Closeable {
 
                 if (!sendFinished) {
                     try {
-                        if (context != null) {
-                            context.progress();
-                        }
                         if (reporter != null){
                             reporter.progress();
                         }
@@ -400,9 +401,6 @@ public class DataSender implements Closeable {
             }
 
             try {
-                if (context != null) {
-                    context.progress();
-                }
                 if (reporter != null){
                     reporter.progress();
                 }
@@ -483,10 +481,5 @@ public class DataSender implements Closeable {
             result = 31 * result + (action != null ? action.hashCode() : 0);
             return result;
         }
-    }
-
-
-    public void setReporter(Reporter reporter) {
-        this.reporter = reporter;
     }
 }

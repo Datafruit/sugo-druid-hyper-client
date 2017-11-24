@@ -42,7 +42,7 @@ public class ImportMapper extends Mapper<LongWritable, Text, LongWritable, NullW
         sender = DataSender.builder()
                     .toServer(hmaster)
                     .ofDataSource(dataSource)
-                    .withContext(context)
+                    .withReporter(context)
                     .build();
     }
 
