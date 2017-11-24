@@ -35,6 +35,7 @@ public abstract class DataExporter implements Closeable {
     String sql;
     OutputStream outputStream;
     private String plyql;
+    private Long totalRecord = 0L;
 
     public static DataExporter local() {
         return new LocalDataExporter();
@@ -89,6 +90,7 @@ public abstract class DataExporter implements Closeable {
                     List<List<Object>> events = (List<List<Object>>) resultValue.get("events");
                     for (List<Object> event : events) {
                         writeRow(toLine(event));
+                        totalRecord++;
                     }
                     flush();
                 }
@@ -246,5 +248,9 @@ public abstract class DataExporter implements Closeable {
 
     private static void printUsage(){
         System.out.println("Usage: DataExporter file|hdfs export_file broker_address plyql_address sql [export_type(hive|csv|tsv)]");
+    }
+    
+    public Long getTotalRecord() {
+        return totalRecord;
     }
 }
