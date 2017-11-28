@@ -394,7 +394,7 @@ public class DataSender implements Closeable {
                             log.info("Report progress waiting for sending remained data.");
                             reporter.progress();
                         }
-                        log.info("Wait 1 second for sending remained data, then enter checking of the next duration.");
+                        log.info("Wait 1 second for sending remained data, then enter checking of the next duration...");
                         Thread.sleep(1000);
                     } catch (InterruptedException e) {
                         try {
