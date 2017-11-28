@@ -91,6 +91,7 @@ public class DataSender implements Closeable {
                 senderCache.put(this, sender);
                 sender = senderCache.get(this); // Get again to make sure sender is not null.
             }
+            log.info("The built data sender is: " + this.toString());
             return sender;
         }
 
@@ -126,6 +127,15 @@ public class DataSender implements Closeable {
             int result = server != null ? server.hashCode() : 0;
             result = 31 * result + (dataSource != null ? dataSource.hashCode() : 0);
             return result;
+        }
+
+        @Override
+        public String toString() {
+            return "DataSender{" +
+                    "server=" + server +
+                    ", dataSource=" + dataSource +
+                    ", reporter=" + reporter +
+                    '}';
         }
     }
 
@@ -381,6 +391,7 @@ public class DataSender implements Closeable {
                 if (!sendFinished) {
                     try {
                         if (reporter != null){
+                            log.info("Report progress waiting for sending remained data.");
                             reporter.progress();
                         }
                         log.info("Wait 1 second for sending remained data, then enter checking of the next duration.");
@@ -398,6 +409,7 @@ public class DataSender implements Closeable {
 
             try {
                 if (reporter != null){
+                    log.info("Report progress waiting for shutting down cache flusher.");
                     reporter.progress();
                 }
                 cacheFlusher.shutdownNow();
