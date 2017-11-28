@@ -11,26 +11,36 @@ import java.util.Map;
 
 public class DataSenderTest {
 
-    private static final String HMASTER = "hd-node-228-28.meizu.gz:8086";
-    private static final String DATA_SOURCE = "igola_profile";
+    private static final String HMASTER = "192.168.0.215:8086";
+    private static final String DATA_SOURCE = "huangama3";
 
     public void add() throws Exception {
         DataSender sender = getSender();
+        List<String> columns = Lists.newArrayList("name", "name2", "type", "tag_name", "tag_value");
+        sender.add(Lists.newArrayList("1001", "Jack", "1", "tag1", "snow"));
+        sender.add(Lists.newArrayList("1002", "Tom", "1", "tag1", "rain"));
+        sender.add(Lists.newArrayList("1003", "Cruise", "0", "tag0", ""));
+        sender.add(Lists.newArrayList("1004", "Peter", "0", "tag0", ""));
+        sender.add(Lists.newArrayList("1005", "Zack", "0", "tag0", ""));
+        sender.add(Lists.newArrayList("1006", "Julie", "1", "tag2", "storm"));
 //        sender.add("1001|M|18");
 //        sender.add(Lists.newArrayList("1002", "F", "16"));
 //        sender.add(Lists.newArrayList("1003", "F", "24"));
+//        sender.add(Lists.newArrayList("1001", "F", "like", "snow"));
+//        sender.add(Lists.newArrayList("1002", "M", "like", "rain"));
         sender.close();
     }
 
     public void update() throws Exception {
         DataSender sender = getSender();
         Map dataMap = Maps.newHashMap();
-//        dataMap.put("uid", "1001");
-//        dataMap.put("profile_age", "99");
-//        sender.update(dataMap);
+        dataMap.put("app_id", "3");
+        dataMap.put("is_installed", "fog");
+        dataMap.put("HEAD_ARGS", "haha,hehe");
+        sender.update(dataMap);
 
-        List columns = Lists.newArrayList("uid", "new_class");
-//        sender.update(columns, Lists.newArrayList("1002", "snow"));
+//        List columns = Lists.newArrayList("name", "new_class22");
+//        sender.update(columns, Lists.newArrayList("1002", "hello22"));
 //        sender.update(columns, Lists.newArrayList("1003", "rain"));
         sender.close();
     }
@@ -47,8 +57,8 @@ public class DataSenderTest {
 
     public static void main(String[] args) throws Exception {
         DataSenderTest senderTest = new DataSenderTest();
-//        senderTest.add();
-        senderTest.update();
+        senderTest.add();
+//        senderTest.update();
 //        senderTest.delete();
     }
 
