@@ -51,9 +51,11 @@ public class HdfsDataExporter extends DataExporter {
     public void close() throws IOException {
         if (FS != null) {
             FS.close();
+            FS = null;
         }
         if (outputStream != null) {
             outputStream.close();
+            outputStream = null;
         }
     }
 }

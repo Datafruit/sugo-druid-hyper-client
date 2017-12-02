@@ -41,6 +41,7 @@ public class LocalDataExporter extends DataExporter {
     public void close() throws IOException {
         if (writer != null) {
             writer.close();
+            writer = null;
         }
     }
 }

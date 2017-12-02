@@ -2,25 +2,26 @@ package io.druid.hyper.client;
 
 import io.druid.hyper.client.exports.DataExporter;
 import io.druid.hyper.client.exports.vo.ScanQuery;
+import org.joda.time.DateTime;
 
-import java.io.IOException;
+import java.io.File;
 import java.util.Arrays;
 import java.util.List;
 
 public class DataExporterTest {
 
-    private static final String SERVER = "192.168.0.212:8082";
-    private static final String LOCAL_FILE = "D:\\wuxianjiRT.csv";
+    private static final String SERVER = "192.168.0.211:8086";
+    private static final String LOCAL_FILE = "/tmp/wuxianjiRT.csv";
     private static final String REMOTE_FILE = "/hadoop/data1/wuxianjiRT.txt";
-    private static final String DATA_SOURCE = "wuxianjiRT";
-    private static final List<String> COLUMNS = Arrays.asList("Nation", "Operator", "ClientDeviceBrand", "SystemVersion", "EventScreen", "Network", "EventAction", "ClientDeviceModel");
-    private static final int COUNT = 16;
+    private static final String DATA_SOURCE = "janpy-1";
+    private static final List<String> COLUMNS = Arrays.asList("is_active", "event_id", "app_id", "is_installed", "HEAD_IP", "HEAD_ARGS");
+    private static final int COUNT = 500000;
 
     public void  exportToLocal() throws Exception {
         ScanQuery query = ScanQuery.builder()
                 .select(COLUMNS)
                 .from(DATA_SOURCE)
-//                .limit(COUNT)
+                .limit(COUNT)
                 .build();
 
         DataExporter.local()
@@ -28,7 +29,16 @@ public class DataExporterTest {
                 .toFile(LOCAL_FILE)
                 .inCSVFormat()
                 .withQuery(query)
-                .export();
+                .exportFromRS();
+
+        query.setLimit(COUNT);
+
+        DataExporter.local()
+            .fromServer("192.168.0.211:8082")
+            .toFile(LOCAL_FILE)
+            .inCSVFormat()
+            .withQuery(query)
+            .export();
     }
 
     public void  exportToLocalUseSQL() throws Exception {
@@ -56,10 +66,48 @@ public class DataExporterTest {
                 .export();
     }
 
+//    curl -XGET http://192.168.0.211:8086/druid/hmaster/v1/datasources/segments/janpy-1
+//	[{
+//		"partition": 0,
+//		"version": "0",
+//		"interval": "1000-01-01T00:00:00.000Z/3000-01-01T00:00:00.000Z",
+//		"servers": ["192.168.0.211:8087",
+//		"192.168.0.212:8087"]
+//	},
+//	{
+//		"partition": 1,
+//		"version": "0",
+//		"interval": "1000-01-01T00:00:00.000Z/3000-01-01T00:00:00.000Z",
+//		"servers": ["192.168.0.212:8087",
+//		"192.168.0.211:8087"]
+//	},
+//	{
+//		"partition": 2,
+//		"version": "0",
+//		"interval": "1000-01-01T00:00:00.000Z/3000-01-01T00:00:00.000Z",
+//		"servers": ["192.168.0.211:8087",
+//		"192.168.0.212:8087"]
+//	},
+//	{
+//		"partition": 3,
+//		"version": "0",
+//		"interval": "1000-01-01T00:00:00.000Z/3000-01-01T00:00:00.000Z",
+//		"servers": ["192.168.0.211:8087",
+//		"192.168.0.212:8087"]
+//	}]
     public static void main(String[] args) throws Exception {
-        DataExporterTest exporterTest = new DataExporterTest();
-        exporterTest.exportToLocal();
-//        exporterTest.exportToLocalUseSQL();
-//        exporterTest.exportToHdfs();
+        System.out.println(new DateTime() + " start exporting data... ");
+        for (int i = 0; i < 1; i++) {
+            File file = new File(LOCAL_FILE);
+            if (file.exists()) {
+                System.out.println(String.format("delete file:%s:%,d", file, file.length()));
+                file.delete();
+            }
+            DataExporterTest exporterTest = new DataExporterTest();
+            exporterTest.exportToLocal();
+            System.out.println(new DateTime() + "  " + i);
+//            Thread.sleep(3000);
+        }
+        System.out.println(new DateTime() + " export successfully");
     }
 }

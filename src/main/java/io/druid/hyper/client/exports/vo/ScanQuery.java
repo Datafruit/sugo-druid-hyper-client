@@ -25,7 +25,7 @@ public class ScanQuery {
     @JsonProperty
     private int batchSize = 1000;
     @JsonProperty
-    private List<String> intervals = Arrays.asList("1000/3000");
+    private Object intervals = Arrays.asList("1000/3000");
     @JsonProperty
     private Map context = ImmutableMap.of("timeout", DEFAULT_TIMEOUT);
 
@@ -84,6 +84,22 @@ public class ScanQuery {
         this.columns = columns;
         this.limit = limit;
         this.filter = filter;
+    }
+
+    public String getDataSource() {
+        return dataSource;
+    }
+
+    public void setIntervals(Object intervals) {
+        this.intervals = intervals;
+    }
+
+    public int getLimit() {
+        return limit;
+    }
+
+    public void setLimit(int limit) {
+        this.limit = limit;
     }
 
     @Override

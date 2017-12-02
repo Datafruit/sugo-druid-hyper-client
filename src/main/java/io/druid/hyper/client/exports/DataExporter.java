@@ -1,11 +1,16 @@
 package io.druid.hyper.client.exports;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import io.druid.hyper.client.exports.vo.ScanQuery;
+import static io.druid.hyper.client.exports.vo.ScanQuery.jsonMapper;
 import io.druid.hyper.client.util.HttpClientUtil;
 import io.druid.hyper.client.util.JsonObjectIterator;
 import okhttp3.*;
+import okhttp3.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,16 +18,16 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.lang.Object;
+import java.net.ConnectException;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 public abstract class DataExporter implements Closeable {
     private static final Logger log = LoggerFactory.getLogger(DataExporter.class);
     private static final MediaType DEFAULT_MEDIA_TYPE = MediaType.parse("application/json; charset=utf-8");
     private static final String SERVER_SCHEMA = "http://%s/druid/v2?pretty";
+    private static final String HMASTER_SERVER_SCHEMA = "http://%s/druid/hmaster/v1/datasources/segments/%s";
     private static final String PLYQL_SCHEMA = "http://%s/get-query";
     private static final String SEPARATOR_COMMA = ",";
     private static final String SEPARATOR_TAB = "\t";
@@ -35,7 +40,7 @@ public abstract class DataExporter implements Closeable {
     String sql;
     OutputStream outputStream;
     private String plyql;
-    private Long totalRecord = 0L;
+    private int totalRecord = 0;
 
     public static DataExporter local() {
         return new LocalDataExporter();
@@ -45,12 +50,10 @@ public abstract class DataExporter implements Closeable {
         return new HdfsDataExporter();
     }
 
-    public void export() throws Exception {
+    private void checkAndInitialize() throws IOException {
         Preconditions.checkNotNull(server, "server can not be null.");
         Preconditions.checkState(query != null || !Strings.isNullOrEmpty(sql), "query or sql can not be null.");
         Preconditions.checkState(filePath != null || outputStream != null, "export file or output stream can not be null.");
-
-        long start = System.currentTimeMillis();
 
         if (outputStream == null) {
             log.info("Start to export data from server [" + server + " ] to file [" + filePath + "].");
@@ -59,18 +62,151 @@ public abstract class DataExporter implements Closeable {
             log.info("Start to export data from server [" + server + " ] to stream.");
             init(outputStream);
         }
+    }
 
-        String queryStr = null;
+  /**
+   * export data from RegionServer, DataExporter#server must be HMaster
+   *
+   * @throws Exception
+   */
+  public void exportFromRS() throws Exception {
+        long start = System.currentTimeMillis();
+        checkAndInitialize();
+
+        OkHttpClient client = getHttpClient();
+        String hmasterUrl = String.format(HMASTER_SERVER_SCHEMA, server, query.getDataSource());
+        Request metaRequest = new Request.Builder().url(hmasterUrl).get().build();
+        Response metaResponse = client.newCall(metaRequest).execute();
+        if (metaResponse.code() != 200) {
+            String errorMsg = "Request server failed, please check the server address [" + server
+                + "] you specified is correct? The most likely address is something like 'HMasterIp:8086'.";
+            throw new RuntimeException(errorMsg);
+        }
+
+        List<PartitionDistributionInfo> pdis = ScanQuery.jsonMapper.readValue(
+            metaResponse.body().byteStream(),
+            new TypeReference<List<PartitionDistributionInfo>>() {
+            }
+        );
+
+        if (pdis.isEmpty()) {
+            throw new RuntimeException(String.format("dataSource[%s] is not exists", query.getDataSource()));
+        }
+
+        int rowCount = 0;
+        int limit = query.getLimit();
+        for (PartitionDistributionInfo pdi : pdis) {
+            //writable RegionServer will be at first
+            List<String> regionServers = pdi.getServers();
+            if (regionServers.isEmpty()) {
+                log.warn("Partition[%d] of datasource[%s] has no servers", query.getDataSource(), pdi.getPartition());
+                continue;
+            }
+            if (rowCount < limit) {
+                query.setLimit(limit - rowCount);
+            }
+            String queryStr = buildQueryString(pdi);
+            for (String regionServer : regionServers) {
+                try {
+                    RequestBody body = RequestBody.create(DEFAULT_MEDIA_TYPE, queryStr);
+                    Request request = (new Request.Builder()).url(String.format(SERVER_SCHEMA, regionServer)).post(body).build();
+                    Response response = client.newCall(request).execute();
+                    int rtnCode = response.code();
+                    if (rtnCode == 200) {
+                        rowCount += readFromResponse(response);
+                        break;
+                    } else {
+                        log.warn("Request server[%s] for Partition[%d] of dataSource[%s] failed, please check the server log",
+                            regionServer, pdi.getPartition(), query.getDataSource());
+                        continue;
+                    }
+                } catch (ConnectException ce) {
+                    log.warn("Request server[%s] for Partition[%d] of dataSource[%s] failed, please check the server log",
+                        regionServer, pdi.getPartition(), query.getDataSource());
+                }
+            }
+            if (rowCount >= limit) {
+                break;
+            }
+        }
+
+        close();
+
+        totalRecord = rowCount;
+
+        long end = System.currentTimeMillis();
+        log.info("Export data successfully, row count:" + rowCount + ", cost [" + (end - start) + "] million seconds.");
+    }
+
+    private int readFromResponse(Response response) {
+        InputStream in = response.body().byteStream();
+
+        int rowCount = 0;
+        try {
+            JsonObjectIterator iterator = new JsonObjectIterator(in);
+            while (iterator.hasNext()) {
+                HashMap resultValue = iterator.next();
+                if (resultValue != null) {
+                    List<List<Object>> events = (List<List<Object>>) resultValue.get("events");
+                    for (List<Object> event : events) {
+                        writeRow(toLine(event));
+                        rowCount++;
+                    }
+                    flush();
+                }
+            }
+        } catch (Exception e) {
+            log.error("Write data to file error: " + e);
+            throw new RuntimeException(e);
+        }
+        return rowCount;
+    }
+
+    private String buildQueryString(PartitionDistributionInfo pdi) throws Exception {
+        Map<String, Object> intervalMap = new HashMap<>();
+        intervalMap.put("type", "segments");
+
+        List<Map<String, Object>> segments = new ArrayList<>();
+        Map<String, Object> segment = new HashMap<>();
+        segments.add(segment);
+        segment.put("itvl", pdi.getInterval());
+        segment.put("ver", pdi.getVersion());
+        segment.put("part", pdi.getPartition());
+
+        intervalMap.put("segments", segments);
+        query.setIntervals(intervalMap);
+
+        String queryStr;
         if (query != null) {
             queryStr = query.toString();
         } else {
             Preconditions.checkState(!Strings.isNullOrEmpty(plyql), "Must specify plyql address with method 'usePylql' for parsing SQL.");
-            queryStr = parseSQL(sql);
+            Map<String, Object> queryMap = parseSQL(sql);
+            queryMap.put("intervals", intervalMap);
+            queryStr = ScanQuery.jsonMapper.writeValueAsString(queryMap);
+        }
+        return queryStr;
+    }
+
+    private OkHttpClient getHttpClient() {
+        return new OkHttpClient.Builder()
+            .connectTimeout(1800L, TimeUnit.SECONDS)
+            .readTimeout(1800L, TimeUnit.SECONDS).build();
+    }
+
+    public void export() throws Exception {
+        long start = System.currentTimeMillis();
+        checkAndInitialize();
+
+        String queryStr;
+        if (query != null) {
+            queryStr = query.toString();
+        } else {
+            Preconditions.checkState(!Strings.isNullOrEmpty(plyql), "Must specify plyql address with method 'usePylql' for parsing SQL.");
+            queryStr = ScanQuery.jsonMapper.writeValueAsString(parseSQL(sql));
         }
 
-        OkHttpClient client = (new OkHttpClient.Builder())
-                .connectTimeout(1800L, TimeUnit.SECONDS)
-                .readTimeout(1800L, TimeUnit.SECONDS).build();
+        OkHttpClient client = getHttpClient();
         RequestBody body = RequestBody.create(DEFAULT_MEDIA_TYPE, queryStr);
         Request request = (new Request.Builder()).url(String.format(SERVER_SCHEMA, server)).post(body).build();
         Response response = client.newCall(request).execute();
@@ -80,43 +216,21 @@ public abstract class DataExporter implements Closeable {
                     + "] you specified is correct? The most likely address is something like 'brokerHost:8082'.";
             throw new Exception(errorMsg);
         }
-        InputStream in = response.body().byteStream();
 
-        try {
-            JsonObjectIterator iterator = new JsonObjectIterator(in);
-            while (iterator.hasNext()) {
-                HashMap resultValue = iterator.next();
-                if (resultValue != null) {
-                    List<List<Object>> events = (List<List<Object>>) resultValue.get("events");
-                    for (List<Object> event : events) {
-                        writeRow(toLine(event));
-                        totalRecord++;
-                    }
-                    flush();
-                }
-            }
-        } catch (Exception e) {
-            log.error("Write data to file error: " + e);
-            throw e;
-        } finally {
-            try {
-                close();
-            } catch (IOException e) {
-                log.error("Close resource error: " + e);
-            }
-        }
+        totalRecord = readFromResponse(response);
+        close();
 
         long end = System.currentTimeMillis();
         log.info("Export data successfully, cost [" + (end-start) + "] million seconds.");
     }
 
-    private String parseSQL(String sql) throws Exception {
+    private Map<String, Object> parseSQL(String sql) throws Exception {
         String plyqlQueryUrl = String.format(PLYQL_SCHEMA, plyql);
         String response = HttpClientUtil.post(plyqlQueryUrl, String.format("{\"sql\":\"%s\",\"scanQuery\":true,\"hasLimit\":true}", sql));
         Map<String, Object> resMap = ScanQuery.jsonMapper.readValue(response, Map.class);
         Map<String, Object> result = (Map<String, Object>) resMap.get("result");
         if (resMap == null || result == null) {
-            throw new Exception("Parse sql error: " + response + ".\n Please check your plyql [" + plyql + "] is correct? " +
+            throw new RuntimeException("Parse sql error: " + response + ".\n Please check your plyql [" + plyql + "] is correct? " +
                     "\n Or your sql [" + sql + "] grammar is correct?");
         }
 
@@ -127,7 +241,7 @@ public abstract class DataExporter implements Closeable {
             result.put("limit", Integer.MAX_VALUE);
         }
 
-        return ScanQuery.jsonMapper.writeValueAsString(result);
+        return result;
     }
 
     protected abstract void init(String filePath) throws IOException;
@@ -248,9 +362,5 @@ public abstract class DataExporter implements Closeable {
 
     private static void printUsage(){
         System.out.println("Usage: DataExporter file|hdfs export_file broker_address plyql_address sql [export_type(hive|csv|tsv)]");
-    }
-    
-    public Long getTotalRecord() {
-        return totalRecord;
     }
 }
