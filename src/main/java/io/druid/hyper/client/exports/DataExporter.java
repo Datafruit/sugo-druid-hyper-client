@@ -41,8 +41,9 @@ public abstract class DataExporter implements Closeable {
     OutputStream outputStream;
     private String plyql;
     private int totalRecord = 0;
+    private boolean progressLog = false;
 
-    public static DataExporter local() {
+  public static DataExporter local() {
         return new LocalDataExporter();
     }
 
@@ -113,7 +114,11 @@ public abstract class DataExporter implements Closeable {
                     Response response = client.newCall(request).execute();
                     int rtnCode = response.code();
                     if (rtnCode == 200) {
-                        rowCount += readFromResponse(response);
+                        int read = readFromResponse(response);
+                        rowCount += read;
+                        if(progressLog) {
+                          log.info("read row[%,d] from [%s], exported row count[%,d]", read, regionServer, rowCount);
+                        }
                         break;
                     } else {
                         log.warn("Request server[%s] for Partition[%d] of dataSource[%s] failed, please check the server log",
@@ -314,6 +319,11 @@ public abstract class DataExporter implements Closeable {
     public DataExporter usePylql(String plyql) {
         this.plyql = plyql;
         return this;
+    }
+
+    public DataExporter progressLog() {
+      this.progressLog = true;
+      return this;
     }
 
     public static void main(String[] args) throws Exception {
