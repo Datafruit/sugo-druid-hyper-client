@@ -35,7 +35,7 @@ public class DataExporterTest {
                 .inCSVFormat()
                 .progressLog()
                 .withQuery(query)
-                .exportFromRS();
+                .export();
 
 //        query.setLimit(COUNT);
 //

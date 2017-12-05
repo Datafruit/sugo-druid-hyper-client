@@ -1,16 +1,12 @@
 package io.druid.hyper.client.exports;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import io.druid.hyper.client.exports.vo.ScanQuery;
-import static io.druid.hyper.client.exports.vo.ScanQuery.jsonMapper;
 import io.druid.hyper.client.util.HttpClientUtil;
 import io.druid.hyper.client.util.JsonObjectIterator;
 import okhttp3.*;
-import okhttp3.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,7 +14,6 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.lang.Object;
 import java.net.ConnectException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -43,7 +38,7 @@ public abstract class DataExporter implements Closeable {
     private int totalRecord = 0;
     private boolean progressLog = false;
 
-  public static DataExporter local() {
+    public static DataExporter local() {
         return new LocalDataExporter();
     }
 
@@ -70,7 +65,7 @@ public abstract class DataExporter implements Closeable {
    *
    * @throws Exception
    */
-  public void exportFromRS() throws Exception {
+  public void export() throws Exception {
         long start = System.currentTimeMillis();
         checkAndInitialize();
 
@@ -197,36 +192,6 @@ public abstract class DataExporter implements Closeable {
         return new OkHttpClient.Builder()
             .connectTimeout(1800L, TimeUnit.SECONDS)
             .readTimeout(1800L, TimeUnit.SECONDS).build();
-    }
-
-    public void export() throws Exception {
-        long start = System.currentTimeMillis();
-        checkAndInitialize();
-
-        String queryStr;
-        if (query != null) {
-            queryStr = query.toString();
-        } else {
-            Preconditions.checkState(!Strings.isNullOrEmpty(plyql), "Must specify plyql address with method 'usePylql' for parsing SQL.");
-            queryStr = ScanQuery.jsonMapper.writeValueAsString(parseSQL(sql));
-        }
-
-        OkHttpClient client = getHttpClient();
-        RequestBody body = RequestBody.create(DEFAULT_MEDIA_TYPE, queryStr);
-        Request request = (new Request.Builder()).url(String.format(SERVER_SCHEMA, server)).post(body).build();
-        Response response = client.newCall(request).execute();
-        int rtnCode = response.code();
-        if (rtnCode != 200) {
-            String errorMsg = "Request server failed, please check the server address [" + server
-                    + "] you specified is correct? The most likely address is something like 'brokerHost:8082'.";
-            throw new Exception(errorMsg);
-        }
-
-        totalRecord = readFromResponse(response);
-        close();
-
-        long end = System.currentTimeMillis();
-        log.info("Export data successfully, cost [" + (end-start) + "] million seconds.");
     }
 
     private Map<String, Object> parseSQL(String sql) throws Exception {
