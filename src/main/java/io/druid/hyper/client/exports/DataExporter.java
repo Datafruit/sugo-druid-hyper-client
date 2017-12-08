@@ -33,6 +33,7 @@ public abstract class DataExporter implements Closeable {
     String separator;
     ScanQuery query;
     String sql;
+    String dataSource;
     OutputStream outputStream;
     private String plyql;
     private int totalRecord = 0;
@@ -48,6 +49,7 @@ public abstract class DataExporter implements Closeable {
 
     private void checkAndInitialize() throws IOException {
         Preconditions.checkNotNull(server, "server can not be null.");
+        Preconditions.checkNotNull(dataSource, "dataSource can not be null.");
         Preconditions.checkState(query != null || !Strings.isNullOrEmpty(sql), "query or sql can not be null.");
         Preconditions.checkState(filePath != null || outputStream != null, "export file or output stream can not be null.");
 
@@ -70,7 +72,7 @@ public abstract class DataExporter implements Closeable {
         checkAndInitialize();
 
         OkHttpClient client = getHttpClient();
-        String hmasterUrl = String.format(HMASTER_SERVER_SCHEMA, server, query.getDataSource());
+        String hmasterUrl = String.format(HMASTER_SERVER_SCHEMA, server, dataSource);
         Request metaRequest = new Request.Builder().url(hmasterUrl).get().build();
         Response metaResponse = client.newCall(metaRequest).execute();
         if (metaResponse.code() != 200) {
@@ -249,6 +251,11 @@ public abstract class DataExporter implements Closeable {
         return this;
     }
 
+    public DataExporter ofDataSource(String dataSource) {
+        this.dataSource = dataSource;
+        return this;
+    }
+
     public DataExporter toStream(OutputStream outputStream) {
         this.outputStream = outputStream;
         return this;
@@ -289,6 +296,10 @@ public abstract class DataExporter implements Closeable {
     public DataExporter progressLog() {
       this.progressLog = true;
       return this;
+    }
+
+    public int getTotalRecord() {
+        return totalRecord;
     }
 
     public static void main(String[] args) throws Exception {
