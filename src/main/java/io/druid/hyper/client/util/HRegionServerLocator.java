@@ -3,7 +3,6 @@ package io.druid.hyper.client.util;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
-import io.druid.hyper.client.util.HttpClientUtil;
 
 import java.io.IOException;
 import java.util.List;
@@ -15,7 +14,7 @@ public class HRegionServerLocator {
     private static final ObjectMapper jsonMapper = new ObjectMapper();
 
     private final String queryRegionServerUrl;
-    private volatile Map<Integer, List<String>> partitionNumAndServers = Maps.newConcurrentMap();
+    private volatile Map<Integer, List<String>> servers = Maps.newConcurrentMap();
 
     public HRegionServerLocator(String hmaster, String dataSource) {
         Preconditions.checkNotNull(hmaster, "hmaster can not be null.");
@@ -24,19 +23,12 @@ public class HRegionServerLocator {
     }
 
     public String getServer(int partitionNum) throws IOException {
-        if (partitionNumAndServers.isEmpty()) {
+        if (servers.isEmpty()) {
             queryRegionServers();
         }
 
-        List<String> servers = partitionNumAndServers.get(String.valueOf(partitionNum));
+        List<String> servers = this.servers.get(String.valueOf(partitionNum));
         return servers == null || servers.isEmpty() ? null : servers.get(0);
-    }
-
-    public int getPartitions() throws IOException {
-        if (partitionNumAndServers.isEmpty()) {
-            queryRegionServers();
-        }
-        return partitionNumAndServers.size();
     }
 
     public void reload() throws IOException {
@@ -45,6 +37,6 @@ public class HRegionServerLocator {
 
     private void queryRegionServers() throws IOException {
         String serverStr = HttpClientUtil.get(queryRegionServerUrl);
-        partitionNumAndServers = jsonMapper.readValue(serverStr, Map.class);
+        servers = jsonMapper.readValue(serverStr, Map.class);
     }
 }

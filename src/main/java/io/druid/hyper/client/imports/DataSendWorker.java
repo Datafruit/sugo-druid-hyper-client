@@ -61,8 +61,4 @@ public class DataSendWorker {
             RetryUtil.MAX_TRY_TIMES
         );
     }
-
-    public int getPartitions() throws IOException {
-        return serverLocator.getPartitions();
-    }
 }

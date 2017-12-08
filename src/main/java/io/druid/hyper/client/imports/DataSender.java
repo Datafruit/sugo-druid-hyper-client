@@ -12,8 +12,6 @@ import io.druid.hyper.client.imports.input.HyperAddRecord;
 import io.druid.hyper.client.imports.input.HyperDeleteRecord;
 import io.druid.hyper.client.imports.input.HyperUpdateRecord;
 import io.druid.hyper.client.util.PartitionUtil;
-import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.util.Progressable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -149,7 +147,7 @@ public class DataSender implements Closeable {
      */
     public void add(String row) throws Exception {
         Preconditions.checkNotNull(row, "row can not be null.");
-        int partition = sendWorker.getPartitions();
+        int partition = dataSourceSpecLoader.getPartitions();
         String delimiter = dataSourceSpecLoader.getDelimiter();
         int primaryIndex = dataSourceSpecLoader.getPrimaryIndex();
         List<String> columns = dataSourceSpecLoader.getColumns();
@@ -175,7 +173,7 @@ public class DataSender implements Closeable {
      */
     public void add(List<Object> columnValues) throws Exception {
         Preconditions.checkState(columnValues!= null && columnValues.size() >= 1, "column values can not be null.");
-        int partition = sendWorker.getPartitions();
+        int partition = dataSourceSpecLoader.getPartitions();
         String delimiter = dataSourceSpecLoader.getDelimiter();
         int primaryIndex = dataSourceSpecLoader.getPrimaryIndex();
         List<String> columns = dataSourceSpecLoader.getColumns();
@@ -211,7 +209,7 @@ public class DataSender implements Closeable {
         Map<String, Object> sortMap = Maps.newTreeMap();
         sortMap.putAll(row);
 
-        int partition = sendWorker.getPartitions();
+        int partition = dataSourceSpecLoader.getPartitions();
         int partitionNum = PartitionUtil.getPartitionNum(primaryValue, partition);
         String delimiter = dataSourceSpecLoader.getDelimiter();
         String columnsStr = Joiner.on(",").join(sortMap.keySet());
@@ -231,7 +229,7 @@ public class DataSender implements Closeable {
         Preconditions.checkState(values!= null && values.size() >= 1, "values can not be null.");
         Preconditions.checkState(columns.size() == values.size(), "columns and values size not matched.");
 
-        int partition = sendWorker.getPartitions();
+        int partition = dataSourceSpecLoader.getPartitions();
         String delimiter = dataSourceSpecLoader.getDelimiter();
         String primaryColumn = dataSourceSpecLoader.getPrimaryColumn();
         if (!columns.contains(primaryColumn)) {
@@ -265,7 +263,7 @@ public class DataSender implements Closeable {
      */
     public void delete(String primaryValue) throws Exception {
         Preconditions.checkNotNull(primaryValue, "primary value can not be null.");
-        int partition = sendWorker.getPartitions();
+        int partition = dataSourceSpecLoader.getPartitions();
         int partitionNum = PartitionUtil.getPartitionNum(primaryValue, partition);
         CacheKey cacheKey = new CacheKey(BatchRecord.RECORD_ACTION_DELETE, partitionNum);
         addToCache(cacheKey, primaryValue);

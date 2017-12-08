@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Lists;
+import io.druid.hyper.client.imports.datasource.DataSourceSpecLoader;
 import io.druid.hyper.client.util.HRegionServerLocator;
 import io.druid.hyper.client.util.HttpClientUtil;
 import io.druid.hyper.client.util.PartitionUtil;
@@ -25,12 +26,14 @@ public class GetQueryClient {
 
     private final String dataSource;
     private final HRegionServerLocator serverLocator;
+    private final DataSourceSpecLoader dataSourceSpecLoader;
 
     public GetQueryClient(String hmaster, String dataSource) {
         Preconditions.checkNotNull(hmaster, "server can not be null.");
         Preconditions.checkNotNull(dataSource, "data source can not be null.");
         this.dataSource = dataSource;
         this.serverLocator = new HRegionServerLocator(hmaster, dataSource);
+        this.dataSourceSpecLoader = new DataSourceSpecLoader(hmaster, dataSource);
     }
 
     public Map<String, Object> getRow(String key) throws Exception {
@@ -42,7 +45,7 @@ public class GetQueryClient {
                 new Callable<Map<String, Object>>() {
                     @Override
                     public Map<String, Object> call() throws Exception {
-                        int partition = serverLocator.getPartitions();
+                        int partition = dataSourceSpecLoader.getPartitions();
                         int partitionNum = PartitionUtil.getPartitionNum(key, partition);
                         GetQuery getQuery = new GetQuery(dataSource, key, partitionNum, columns);
 

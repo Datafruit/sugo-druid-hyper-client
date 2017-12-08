@@ -52,6 +52,13 @@ public class DataSourceSpecLoader {
         return datasourceSpec.getColumns();
     }
 
+    public int getPartitions() throws IOException {
+        if (datasourceSpec == null) {
+            loadDataSourceSpec();
+        }
+        return datasourceSpec.getPartitions();
+    }
+
     private void loadDataSourceSpec() {
         try {
             String resultJson = HttpClientUtil.get(queryDataSourceUrl);
