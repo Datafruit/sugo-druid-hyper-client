@@ -3,8 +3,9 @@ package io.druid.hyper.client.exports;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import io.druid.hyper.client.exports.vo.Query;
 import io.druid.hyper.client.exports.vo.ScanQuery;
-import io.druid.hyper.client.util.HttpClientUtil;
+import io.druid.hyper.client.exports.vo.SqlQuery;
 import io.druid.hyper.client.util.JsonObjectIterator;
 import okhttp3.*;
 import org.slf4j.Logger;
@@ -23,7 +24,6 @@ public abstract class DataExporter implements Closeable {
     private static final MediaType DEFAULT_MEDIA_TYPE = MediaType.parse("application/json; charset=utf-8");
     private static final String SERVER_SCHEMA = "http://%s/druid/v2?pretty";
     private static final String HMASTER_SERVER_SCHEMA = "http://%s/druid/hmaster/v1/datasources/segments/%s";
-    private static final String PLYQL_SCHEMA = "http://%s/get-query";
     private static final String SEPARATOR_COMMA = ",";
     private static final String SEPARATOR_TAB = "\t";
     private static final String SEPARATOR_HIVE = "\001";
@@ -31,9 +31,8 @@ public abstract class DataExporter implements Closeable {
     String filePath;
     String server;
     String separator;
-    ScanQuery query;
+    Query query;
     String sql;
-    String dataSource;
     OutputStream outputStream;
     private String plyql;
     private int totalRecord = 0;
@@ -47,9 +46,8 @@ public abstract class DataExporter implements Closeable {
         return new HdfsDataExporter();
     }
 
-    private void checkAndInitialize() throws IOException {
+    private void checkAndInitialize() throws Exception {
         Preconditions.checkNotNull(server, "server can not be null.");
-        Preconditions.checkNotNull(dataSource, "dataSource can not be null.");
         Preconditions.checkState(query != null || !Strings.isNullOrEmpty(sql), "query or sql can not be null.");
         Preconditions.checkState(filePath != null || outputStream != null, "export file or output stream can not be null.");
 
@@ -60,6 +58,8 @@ public abstract class DataExporter implements Closeable {
             log.info("Start to export data from server [" + server + " ] to stream.");
             init(outputStream);
         }
+
+        query = query != null ? query : new SqlQuery(plyql, sql);
     }
 
   /**
@@ -72,7 +72,7 @@ public abstract class DataExporter implements Closeable {
         checkAndInitialize();
 
         OkHttpClient client = getHttpClient();
-        String hmasterUrl = String.format(HMASTER_SERVER_SCHEMA, server, dataSource);
+        String hmasterUrl = String.format(HMASTER_SERVER_SCHEMA, server, query.getDataSource());
         Request metaRequest = new Request.Builder().url(hmasterUrl).get().build();
         Response metaResponse = client.newCall(metaRequest).execute();
         if (metaResponse.code() != 200) {
@@ -81,7 +81,7 @@ public abstract class DataExporter implements Closeable {
             throw new RuntimeException(errorMsg);
         }
 
-        List<PartitionDistributionInfo> pdis = ScanQuery.jsonMapper.readValue(
+        List<PartitionDistributionInfo> pdis = Query.jsonMapper.readValue(
             metaResponse.body().byteStream(),
             new TypeReference<List<PartitionDistributionInfo>>() {
             }
@@ -178,42 +178,13 @@ public abstract class DataExporter implements Closeable {
         intervalMap.put("segments", segments);
         query.setIntervals(intervalMap);
 
-        String queryStr;
-        if (query != null) {
-            queryStr = query.toString();
-        } else {
-            Preconditions.checkState(!Strings.isNullOrEmpty(plyql), "Must specify plyql address with method 'usePylql' for parsing SQL.");
-            Map<String, Object> queryMap = parseSQL(sql);
-            queryMap.put("intervals", intervalMap);
-            queryStr = ScanQuery.jsonMapper.writeValueAsString(queryMap);
-        }
-        return queryStr;
+        return query.queryString();
     }
 
     private OkHttpClient getHttpClient() {
         return new OkHttpClient.Builder()
             .connectTimeout(1800L, TimeUnit.SECONDS)
             .readTimeout(1800L, TimeUnit.SECONDS).build();
-    }
-
-    private Map<String, Object> parseSQL(String sql) throws Exception {
-        String plyqlQueryUrl = String.format(PLYQL_SCHEMA, plyql);
-        String response = HttpClientUtil.post(plyqlQueryUrl, String.format("{\"sql\":\"%s\",\"scanQuery\":true,\"hasLimit\":true}", sql));
-        Map<String, Object> resMap = ScanQuery.jsonMapper.readValue(response, Map.class);
-        Map<String, Object> result = (Map<String, Object>) resMap.get("result");
-        if (resMap == null || result == null) {
-            throw new RuntimeException("Parse sql error: " + response + ".\n Please check your plyql [" + plyql + "] is correct? " +
-                    "\n Or your sql [" + sql + "] grammar is correct?");
-        }
-
-        Map<String, Object> context = (Map<String, Object>) result.get("context");
-        context.put("timeout", ScanQuery.DEFAULT_TIMEOUT);
-
-        if (result.get("limit") == null) {
-            result.put("limit", Integer.MAX_VALUE);
-        }
-
-        return result;
     }
 
     protected abstract void init(String filePath) throws IOException;
@@ -251,14 +222,13 @@ public abstract class DataExporter implements Closeable {
         return this;
     }
 
-    public DataExporter ofDataSource(String dataSource) {
-        this.dataSource = dataSource;
-        return this;
-    }
-
     public DataExporter toStream(OutputStream outputStream) {
         this.outputStream = outputStream;
         return this;
+    }
+
+    public int getTotalRecord() {
+        return totalRecord;
     }
 
     public DataExporter inCSVFormat() {
@@ -296,10 +266,6 @@ public abstract class DataExporter implements Closeable {
     public DataExporter progressLog() {
       this.progressLog = true;
       return this;
-    }
-
-    public int getTotalRecord() {
-        return totalRecord;
     }
 
     public static void main(String[] args) throws Exception {

@@ -12,10 +12,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-public class ScanQuery {
-
-    public static final ObjectMapper jsonMapper = new ObjectMapper();
-    public static final int DEFAULT_TIMEOUT = 900000;
+public class ScanQuery implements Query {
 
     /** changeless **/
     @JsonProperty
@@ -46,7 +43,7 @@ public class ScanQuery {
     public static class Builder {
         private String dataSource;
         private List<String> columns;
-        private int limit = Integer.MAX_VALUE;
+        private int limit = DEFAULT_LIMIT;
         private AndDimFilter filter;
 
         public Builder select(List<String> columns) {
@@ -86,24 +83,28 @@ public class ScanQuery {
         this.filter = filter;
     }
 
+    @Override
     public String getDataSource() {
         return dataSource;
     }
 
+    @Override
     public void setIntervals(Object intervals) {
         this.intervals = intervals;
     }
 
+    @Override
     public int getLimit() {
         return limit;
     }
 
+    @Override
     public void setLimit(int limit) {
         this.limit = limit;
     }
 
     @Override
-    public String toString() {
+    public String queryString() {
         try {
             return jsonMapper.writeValueAsString(this);
         } catch (JsonProcessingException e) {
