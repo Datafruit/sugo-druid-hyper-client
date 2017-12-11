@@ -160,6 +160,17 @@ public abstract class DataExporter implements Closeable {
         } catch (Exception e) {
             log.error("Write data to file error: " + e);
             throw new RuntimeException(e);
+        } finally {
+            if (in != null) {
+                try {
+                    in.close();
+                } catch (IOException ignore) {
+                    ignore.printStackTrace();
+                }
+            }
+            if (response != null) {
+                response.close();
+            }
         }
         return rowCount;
     }
