@@ -284,7 +284,7 @@ public abstract class DataExporter implements Closeable {
         }
         String type = args[0];
         String exportFile = args[1];
-        String brokerAddress = args[2];
+        String masterAddress = args[2];
         String plyqlAddress = args[3];
         String sql = args[4];
 
@@ -299,7 +299,7 @@ public abstract class DataExporter implements Closeable {
             printUsage();
             return;
         }
-        dataExporter.fromServer(brokerAddress)
+        dataExporter.fromServer(masterAddress)
                 .usePylql(plyqlAddress)
                 .withSQL(sql).toFile(exportFile);
 
@@ -322,6 +322,6 @@ public abstract class DataExporter implements Closeable {
     }
 
     private static void printUsage(){
-        System.out.println("Usage: DataExporter file|hdfs export_file broker_address plyql_address sql [export_type(hive|csv|tsv)]");
+        System.out.println("Usage: DataExporter file|hdfs export_file master_address plyql_address sql [export_type(hive|csv|tsv)]");
     }
 }

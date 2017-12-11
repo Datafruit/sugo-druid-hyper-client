@@ -51,21 +51,28 @@ public class SqlQuery implements Query {
 
     private Map<String, Object> parseSQL(String sql) throws Exception {
         String plyqlQueryUrl = String.format(PLYQL_SCHEMA, plyql);
-        String response = HttpClientUtil.post(plyqlQueryUrl, String.format("{\"sql\":\"%s\",\"scanQuery\":true,\"hasLimit\":true}", sql));
-        Map<String, Object> resMap = jsonMapper.readValue(response, Map.class);
-        Map<String, Object> result = (Map<String, Object>) resMap.get("result");
-        if (resMap == null || result == null) {
-            throw new RuntimeException("Parse sql error: " + response + ".\n Please check your plyql [" + plyql + "] is correct? " +
-                    "\n Or your sql [" + sql + "] grammar is correct?");
+        try {
+            String response = HttpClientUtil.post(plyqlQueryUrl, String.format("{\"sql\":\"%s\",\"scanQuery\":true,\"hasLimit\":true}", sql));
+            Map<String, Object> resMap = jsonMapper.readValue(response, Map.class);
+            Map<String, Object> result = (Map<String, Object>) resMap.get("result");
+            if (resMap == null || result == null) {
+                throw new RuntimeException("Parse sql error: " + response + ".\n Please check the plyql [" + plyql + "] " +
+                        "address you specified is correct?  \n Or your sql [" + sql + "] grammar is correct? \n Or the data " +
+                        "source is exists?");
+            }
+
+            Map<String, Object> context = (Map<String, Object>) result.get("context");
+            context.put("timeout", DEFAULT_TIMEOUT);
+
+            if (result.get("limit") == null) {
+                result.put("limit", DEFAULT_LIMIT);
+            }
+
+            return result;
+        } catch (Exception e) {
+            throw new RuntimeException("Parse sql error, please check the plyql [" + plyql + "] address you specified is " +
+                    "correct? \n Or your sql [" + sql + "] grammar is correct? \n Or the data source is exists?");
         }
 
-        Map<String, Object> context = (Map<String, Object>) result.get("context");
-        context.put("timeout", DEFAULT_TIMEOUT);
-
-        if (result.get("limit") == null) {
-            result.put("limit", DEFAULT_LIMIT);
-        }
-
-        return result;
     }
 }
