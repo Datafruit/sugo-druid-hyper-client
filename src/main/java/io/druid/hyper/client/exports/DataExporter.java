@@ -164,9 +164,7 @@ public abstract class DataExporter implements Closeable {
             if (in != null) {
                 try {
                     in.close();
-                } catch (IOException ignore) {
-                    ignore.printStackTrace();
-                }
+                } catch (IOException ignore) { }
             }
             if (response != null) {
                 response.close();
