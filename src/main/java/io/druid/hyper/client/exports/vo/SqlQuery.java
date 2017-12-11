@@ -1,5 +1,6 @@
 package io.druid.hyper.client.exports.vo;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import io.druid.hyper.client.util.HttpClientUtil;
@@ -40,8 +41,12 @@ public class SqlQuery implements Query {
     }
 
     @Override
-    public String queryString() throws Exception {
-        return jsonMapper.writeValueAsString(queryMap);
+    public String queryString() {
+        try {
+            return jsonMapper.writeValueAsString(queryMap);
+        } catch (JsonProcessingException e) {
+            return null;
+        }
     }
 
     private Map<String, Object> parseSQL(String sql) throws Exception {

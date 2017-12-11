@@ -11,5 +11,5 @@ public interface Query {
     int getLimit();
     void setLimit(int limit);
     void setIntervals(Object intervals);
-    String queryString() throws Exception;
+    String queryString();
 }
