@@ -1,6 +1,8 @@
 package io.druid.hyper.client.imports.input;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.druid.hyper.client.imports.DataSender;
+import io.druid.hyper.client.imports.ValueAndFlag;
 
 import java.util.List;
 
@@ -17,14 +19,18 @@ public class HyperUpdateRecord extends BatchRecord {
      */
     private final List<String> values;
 
+    private final List<byte[]> appendFlags;
+
     public HyperUpdateRecord(
             String dataSource,
             Integer partitionNum,
             List<String> columns,
-            List<String> values) {
+           ValueAndFlag valueAndFlag
+    ) {
         super(BatchRecord.RECORD_ACTION_UPDATE, dataSource, partitionNum);
         this.columns = columns;
-        this.values = values;
+        this.values = valueAndFlag.getValuesList();
+        this.appendFlags = valueAndFlag.getAppendFlagsList();
     }
 
     @Override
@@ -40,6 +46,11 @@ public class HyperUpdateRecord extends BatchRecord {
     @JsonProperty
     public List<String> getColumns() {
         return columns;
+    }
+
+    @JsonProperty
+    public List<byte[]> getAppendFlags() {
+        return appendFlags;
     }
 
     @Override

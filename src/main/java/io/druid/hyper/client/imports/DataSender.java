@@ -15,6 +15,7 @@ import io.druid.hyper.client.util.PartitionUtil;
 import org.apache.hadoop.util.Progressable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import static sun.tools.jstat.Alignment.keySet;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -30,7 +31,7 @@ public class DataSender implements Closeable {
     private static final int CACHE_FLUSH_PERIOD = 3; // seconds
     private static final int MAX_CACHE_FLUSH_DURATION = 1000; // million seconds
 
-    private final Map<CacheKey, List<String>> dataCache = Maps.newConcurrentMap();
+    private final Map<CacheKey, ValueAndFlag> dataCache = Maps.newConcurrentMap();
     private final DataSendWorker sendWorker;
     private final DataSourceSpecLoader dataSourceSpecLoader;
 
@@ -196,6 +197,10 @@ public class DataSender implements Closeable {
      * @throws Exception
      */
     public void update(Map<String, Object> row) throws Exception {
+        update(row, null);
+    }
+
+    public void update(Map<String, Object> row, Map<String, Boolean> appendMap) throws Exception {
         Preconditions.checkState(row!= null && row.size() >= 1, "row can not be null.");
         String primaryColumn = dataSourceSpecLoader.getPrimaryColumn();
         Set<String> columns = row.keySet();
@@ -209,13 +214,26 @@ public class DataSender implements Closeable {
         Map<String, Object> sortMap = Maps.newTreeMap();
         sortMap.putAll(row);
 
+        byte[] appendFlags = new byte[row.size()];
+        if (appendMap != null && !appendMap.isEmpty()) {
+            int colIdx = 0;
+            for (String column : sortMap.keySet()) {
+                if (appendMap.getOrDefault(column, false)) {
+                    appendFlags[colIdx] = 1;
+                } else {
+                    appendFlags[colIdx] = 0;
+                }
+                colIdx++;
+            }
+        }
+
         int partition = dataSourceSpecLoader.getPartitions();
         int partitionNum = PartitionUtil.getPartitionNum(primaryValue, partition);
         String delimiter = dataSourceSpecLoader.getDelimiter();
         String columnsStr = Joiner.on(",").join(sortMap.keySet());
         String valuesStr = Joiner.on(delimiter).useForNull("").join(sortMap.values());
         CacheKey cacheKey = new CacheKey(BatchRecord.RECORD_ACTION_UPDATE, columnsStr, partitionNum);
-        addToCache(cacheKey, valuesStr);
+        addToCache(cacheKey, valuesStr, appendFlags);
     }
 
     /**
@@ -225,9 +243,16 @@ public class DataSender implements Closeable {
      * @throws Exception
      */
     public void update(List<String> columns, List<Object> values) throws Exception {
+        update(columns, values, null);
+    }
+
+    public void update(List<String> columns, List<Object> values, List<Boolean> appendFlags) throws Exception {
         Preconditions.checkState(columns!= null && columns.size() >= 1, "columns can not be null.");
         Preconditions.checkState(values!= null && values.size() >= 1, "values can not be null.");
         Preconditions.checkState(columns.size() == values.size(), "columns and values size not matched.");
+        if(appendFlags != null && !appendFlags.isEmpty()) {
+            Preconditions.checkState(columns.size() == appendFlags.size(), "columns and appendFlags size not matched.");
+        }
 
         int partition = dataSourceSpecLoader.getPartitions();
         String delimiter = dataSourceSpecLoader.getDelimiter();
@@ -236,12 +261,25 @@ public class DataSender implements Closeable {
             throw new IllegalArgumentException("columns must be contain primary column: " + primaryColumn);
         }
 
+        byte[] flags = new byte[columns.size()];
+        if (appendFlags != null && !appendFlags.isEmpty()) {
+            int idx = 0;
+            for (Boolean flag : appendFlags) {
+                if (flag) {
+                    flags[idx] = 1;
+                } else {
+                    flags[idx] = 0;
+                }
+                idx++;
+            }
+        }
+
         Object primaryValue = values.get(columns.indexOf(primaryColumn));
         int partitionNum = PartitionUtil.getPartitionNum(primaryValue, partition);
         String columnsStr = Joiner.on(",").join(columns);
         String valuesStr = Joiner.on(delimiter).useForNull("").join(values);
         CacheKey cacheKey = new CacheKey(BatchRecord.RECORD_ACTION_UPDATE, columnsStr, partitionNum);
-        addToCache(cacheKey, valuesStr);
+        addToCache(cacheKey, valuesStr, flags);
     }
 
     /**
@@ -270,20 +308,27 @@ public class DataSender implements Closeable {
     }
 
     private void addToCache(CacheKey cacheKey, String values) throws Exception {
-        List<String> valuesList = dataCache.get(cacheKey);
-        if (valuesList == null) {
-            valuesList = Lists.newArrayList();
-            dataCache.put(cacheKey, valuesList);
+        addToCache(cacheKey, values, null);
+    }
+
+    private void addToCache(CacheKey cacheKey, String values, byte[] appendFlags) throws Exception {
+        ValueAndFlag valueAndFlag = dataCache.get(cacheKey);
+        if (valueAndFlag == null) {
+            valueAndFlag = new ValueAndFlag();
+            dataCache.put(cacheKey, valueAndFlag);
         }
-        synchronized (valuesList) {
-            valuesList.add(values);
-            if (reachThreshold(cacheKey.getAction(), valuesList.size())) {
+        synchronized (valueAndFlag) {
+            valueAndFlag.addValues(values);
+            if(appendFlags != null) {
+                valueAndFlag.addAppendFlags(appendFlags);
+            }
+            if (reachThreshold(cacheKey.getAction(), valueAndFlag.getValuesList().size())) {
                 StringBuffer sb = new StringBuffer("Client main thread send a batch of data, action [")
                         .append(cacheKey.getAction()).append("], size [")
-                        .append(valuesList.size()).append("], partitionNum [")
+                        .append(valueAndFlag.getValuesList().size()).append("], partitionNum [")
                         .append(cacheKey.getPartitionNum()).append("].");
                 log.info(sb.toString());
-                sendData(cacheKey, valuesList);
+                sendData(cacheKey, valueAndFlag);
             }
         }
     }
@@ -296,23 +341,23 @@ public class DataSender implements Closeable {
                 new Runnable() {
                     @Override
                     public void run() {
-                        Iterator<Map.Entry<CacheKey, List<String>>> it = dataCache.entrySet().iterator();
+                        Iterator<Map.Entry<CacheKey, ValueAndFlag>> it = dataCache.entrySet().iterator();
                         while (it.hasNext()) {
-                            Map.Entry<CacheKey, List<String>> entry = it.next();
+                            Map.Entry<CacheKey, ValueAndFlag> entry = it.next();
                             CacheKey cacheKey = entry.getKey();
                             long now = System.currentTimeMillis();
                             if (now - cacheKey.getLastSendTime() >= MAX_CACHE_FLUSH_DURATION) {
-                                List<String> valuesList = entry.getValue();
-                                if (!valuesList.isEmpty()) {
-                                    synchronized (valuesList) {
-                                        if (!valuesList.isEmpty()) {
+                                ValueAndFlag valueAndFlag = entry.getValue();
+                                if (!valueAndFlag.getValuesList().isEmpty()) {
+                                    synchronized (valueAndFlag) {
+                                        if (!valueAndFlag.getValuesList().isEmpty()) {
                                             try {
                                                 StringBuffer sb = new StringBuffer("Cache flush thread send a batch of data, action [")
                                                         .append(cacheKey.getAction()).append("], size [")
-                                                        .append(valuesList.size()).append("], partitionNum [")
+                                                        .append(valueAndFlag.getValuesList().size()).append("], partitionNum [")
                                                         .append(cacheKey.getPartitionNum()).append("].");
                                                 log.info(sb.toString());
-                                                sendData(cacheKey, valuesList);
+                                                sendData(cacheKey, valueAndFlag);
                                             } catch (Exception e) {
                                                 log.error("Cache flush thread send data error: ", e);
                                             }
@@ -328,25 +373,26 @@ public class DataSender implements Closeable {
                 TimeUnit.SECONDS);
     }
 
-    private void sendData(CacheKey cacheKey, List<String> valuesList) throws Exception {
-        BatchRecord batchRecord = makeBatchRecord(cacheKey, valuesList);
+    private void sendData(CacheKey cacheKey, ValueAndFlag valueAndFlag) throws Exception {
+        BatchRecord batchRecord = makeBatchRecord(cacheKey, valueAndFlag);
         sendWorker.send(batchRecord);
         cacheKey.setLastSendTime(System.currentTimeMillis());
-        valuesList.clear();
+        valueAndFlag.clear();
     }
 
-    private BatchRecord makeBatchRecord(CacheKey cacheKey, List<String> valuesList) {
+    private BatchRecord makeBatchRecord(CacheKey cacheKey, ValueAndFlag valueAndFlag) {
         String action = cacheKey.getAction();
         if (BatchRecord.RECORD_ACTION_ADD.equals(action)) {
-            return new HyperAddRecord(dataSource, cacheKey.getPartitionNum(), valuesList);
+            return new HyperAddRecord(dataSource, cacheKey.getPartitionNum(), valueAndFlag.getValuesList());
         } else if (BatchRecord.RECORD_ACTION_UPDATE.equals(action)) {
             Iterable<String> columnsIter = Splitter.on(",")
                     .trimResults()
                     .split(cacheKey.getColumns());
             List<String> columns = Lists.newArrayList(columnsIter);
-            return new HyperUpdateRecord(dataSource, cacheKey.getPartitionNum(), columns, valuesList);
+            return new HyperUpdateRecord(dataSource, cacheKey.getPartitionNum(), columns,
+                valueAndFlag);
         } else if (BatchRecord.RECORD_ACTION_DELETE.equals(action)) {
-            return new HyperDeleteRecord(dataSource, cacheKey.getPartitionNum(), valuesList);
+            return new HyperDeleteRecord(dataSource, cacheKey.getPartitionNum(), valueAndFlag.getValuesList());
         }
         return null;
     }
@@ -360,7 +406,7 @@ public class DataSender implements Closeable {
     @Override
     public void close() throws IOException {
         if (cacheFlusher != null) {
-            Iterator<Map.Entry<CacheKey, List<String>>> it = dataCache.entrySet().iterator();
+            Iterator<Map.Entry<CacheKey, ValueAndFlag>> it = dataCache.entrySet().iterator();
             log.info("Closing and flush remained " + dataCache.entrySet().size() + " cache entries.");
 
             List<String> currentValues = Collections.emptyList();
@@ -369,9 +415,9 @@ public class DataSender implements Closeable {
                 boolean sendFinished = true;
                 if (currentValues.isEmpty()) { // Make sure the current entry is empty, then continue to take the next
                     while (it.hasNext()) {
-                        Map.Entry<CacheKey, List<String>> entry = it.next();
+                        Map.Entry<CacheKey, ValueAndFlag> entry = it.next();
                         CacheKey cacheKey = entry.getKey();
-                        currentValues = entry.getValue();
+                        currentValues = entry.getValue().getValuesList();
                         if (!currentValues.isEmpty()) {
                             StringBuffer sb = new StringBuffer("There are still unsent data when closing, action [")
                                     .append(cacheKey.getAction()).append("], size [")

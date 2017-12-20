@@ -12,6 +12,7 @@ public class DatasourceSpec {
     private final int partitions;
     private final String delimiter;
     private final List<String> columns;
+    private final List<Boolean> multiValues;
 
     @JsonCreator
     public DatasourceSpec(
@@ -19,13 +20,15 @@ public class DatasourceSpec {
             @JsonProperty("primaryIndex") int primaryIndex,
             @JsonProperty("partitions") int partitions,
             @JsonProperty("delimiter") String delimiter,
-            @JsonProperty("columns") List<String> columns
+            @JsonProperty("columns") List<String> columns,
+            @JsonProperty("multiValues") List<Boolean> multiValues
     ) {
         this.primaryColumn = primaryColumn;
         this.primaryIndex = primaryIndex;
         this.partitions = partitions;
         this.delimiter = delimiter;
         this.columns = columns;
+        this.multiValues = multiValues;
     }
 
     @JsonProperty
@@ -51,5 +54,10 @@ public class DatasourceSpec {
     @JsonProperty
     public List<String> getColumns() {
         return columns;
+    }
+
+    @JsonProperty
+    public List<Boolean> getMultiValues() {
+        return multiValues;
     }
 }

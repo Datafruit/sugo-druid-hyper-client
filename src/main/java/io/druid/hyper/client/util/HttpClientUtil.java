@@ -30,10 +30,11 @@ public class HttpClientUtil {
 
         Response response = HTTP_CLIENT.newCall(request).execute();
         int rtnCode = response.code();
-        if (rtnCode != 200) {
-            throw new Exception("Post data failed.");
-        }
         String result = response.body().string();
+
+        if (rtnCode != 200) {
+            throw new Exception("Post data failed. error:" + result);
+        }
 
         return result;
     }
