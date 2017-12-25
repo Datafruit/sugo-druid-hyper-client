@@ -214,14 +214,14 @@ public class DataSender implements Closeable {
         Map<String, Object> sortMap = Maps.newTreeMap();
         sortMap.putAll(row);
 
-        byte[] appendFlags = new byte[row.size()];
+        boolean[] appendFlags = new boolean[row.size()];
         if (appendMap != null && !appendMap.isEmpty()) {
             int colIdx = 0;
             for (String column : sortMap.keySet()) {
                 if (appendMap.getOrDefault(column, false)) {
-                    appendFlags[colIdx] = 1;
+                    appendFlags[colIdx] = true;
                 } else {
-                    appendFlags[colIdx] = 0;
+                    appendFlags[colIdx] = false;
                 }
                 colIdx++;
             }
@@ -261,14 +261,14 @@ public class DataSender implements Closeable {
             throw new IllegalArgumentException("columns must be contain primary column: " + primaryColumn);
         }
 
-        byte[] flags = new byte[columns.size()];
+        boolean[] flags = new boolean[columns.size()];
         if (appendFlags != null && !appendFlags.isEmpty()) {
             int idx = 0;
             for (Boolean flag : appendFlags) {
                 if (flag) {
-                    flags[idx] = 1;
+                    flags[idx] = true;
                 } else {
-                    flags[idx] = 0;
+                    flags[idx] = false;
                 }
                 idx++;
             }
@@ -311,7 +311,7 @@ public class DataSender implements Closeable {
         addToCache(cacheKey, values, null);
     }
 
-    private void addToCache(CacheKey cacheKey, String values, byte[] appendFlags) throws Exception {
+    private void addToCache(CacheKey cacheKey, String values, boolean[] appendFlags) throws Exception {
         ValueAndFlag valueAndFlag = dataCache.get(cacheKey);
         if (valueAndFlag == null) {
             valueAndFlag = new ValueAndFlag();

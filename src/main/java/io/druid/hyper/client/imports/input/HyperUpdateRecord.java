@@ -19,7 +19,7 @@ public class HyperUpdateRecord extends BatchRecord {
      */
     private final List<String> values;
 
-    private final List<byte[]> appendFlags;
+    private final List<boolean[]> appendFlags;
 
     public HyperUpdateRecord(
             String dataSource,
@@ -49,7 +49,7 @@ public class HyperUpdateRecord extends BatchRecord {
     }
 
     @JsonProperty
-    public List<byte[]> getAppendFlags() {
+    public List<boolean[]> getAppendFlags() {
         return appendFlags;
     }
 

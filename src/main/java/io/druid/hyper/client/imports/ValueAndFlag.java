@@ -6,14 +6,14 @@ import java.util.List;
 public class ValueAndFlag {
 
   private List<String> valuesList;
-  private List<byte[]> appendFlagsList;
+  private List<boolean[]> appendFlagsList;
 
   public ValueAndFlag(){
     valuesList = new ArrayList<>();
     appendFlagsList = new ArrayList<>();
   }
 
-  public List<byte[]> getAppendFlagsList() {
+  public List<boolean[]> getAppendFlagsList() {
     return appendFlagsList;
   }
 
@@ -25,7 +25,7 @@ public class ValueAndFlag {
     valuesList.add(values);
   }
 
-  public void addAppendFlags(byte[] flags) {
+  public void addAppendFlags(boolean[] flags) {
     appendFlagsList.add(flags);
   }
 
