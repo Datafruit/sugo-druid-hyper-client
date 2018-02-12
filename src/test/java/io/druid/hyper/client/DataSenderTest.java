@@ -13,7 +13,7 @@ import java.util.Random;
 
 public class DataSenderTest {
 
-    private static final String HMASTER = "192.168.0.211:8086";
+    private static final String HMASTER = "192.168.0.225:8086";
     private static final String DATA_SOURCE = "janpy-1";
 
     public void add() throws Exception {
@@ -83,14 +83,14 @@ public class DataSenderTest {
 
         long min = Integer.MAX_VALUE;
         long max = Integer.MIN_VALUE;
-        int base = 1000000;
-        for(int i =0; i < base;i++) {
-            String values = "test1" + r.nextInt(100000000);
-            sender.add(Lists.newArrayList("" + r.nextInt(3), "event" + r.nextInt(10), i, "" + r.nextInt(3), "192.168.0." + r.nextInt(256), values));
-            if (i % 100000 == 0) {
-                System.out.println(i);
-            }
-        }
+        int base = 30000000;
+//        for(int i =0; i < base;i++) {
+//            String values = "test1" + r.nextInt(100000000);
+//            sender.add(Lists.newArrayList("" + r.nextInt(3), "event" + r.nextInt(10), i, "" + r.nextInt(3), "192.168.0." + r.nextInt(256), values));
+//            if (i % 100000 == 0) {
+//                System.out.println(i);
+//            }
+//        }
         long s2 = System.currentTimeMillis();
         System.out.println(String.format("add spend time:%,d", s2 - s1));
 
@@ -101,7 +101,7 @@ public class DataSenderTest {
         long last = s1;
         long now = s1;
         int idx = 1;
-        for (int i = 1; i < 500000000; i++) {
+        for (int i = 1; i < 1990000000; i++) {
             String values = "";
             int len = r.nextInt(6);
             for(int n = 0; n < len;n++) {

@@ -15,7 +15,7 @@ import java.util.Random;
 
 public class DataExporterTest {
 
-    private static final String SERVER = "192.168.0.211:8086";
+    private static final String SERVER = "192.168.0.225:8086";
     private static final String LOCAL_FILE = "/tmp/wuxianjiRT.csv";
     private static final String REMOTE_FILE = "/hadoop/data1/wuxianjiRT.txt";
     private static final String DATA_SOURCE = "janpy-1";
@@ -73,39 +73,11 @@ public class DataExporterTest {
     }
 
 //    curl -XGET http://192.168.0.211:8086/druid/hmaster/v1/datasources/segments/janpy-1
-//	[{
-//		"partition": 0,
-//		"version": "0",
-//		"interval": "1000-01-01T00:00:00.000Z/3000-01-01T00:00:00.000Z",
-//		"servers": ["192.168.0.211:8087",
-//		"192.168.0.212:8087"]
-//	},
-//	{
-//		"partition": 1,
-//		"version": "0",
-//		"interval": "1000-01-01T00:00:00.000Z/3000-01-01T00:00:00.000Z",
-//		"servers": ["192.168.0.212:8087",
-//		"192.168.0.211:8087"]
-//	},
-//	{
-//		"partition": 2,
-//		"version": "0",
-//		"interval": "1000-01-01T00:00:00.000Z/3000-01-01T00:00:00.000Z",
-//		"servers": ["192.168.0.211:8087",
-//		"192.168.0.212:8087"]
-//	},
-//	{
-//		"partition": 3,
-//		"version": "0",
-//		"interval": "1000-01-01T00:00:00.000Z/3000-01-01T00:00:00.000Z",
-//		"servers": ["192.168.0.211:8087",
-//		"192.168.0.212:8087"]
-//	}]
     public static void main(String[] args) throws Exception {
         System.out.println(new DateTime() + " start exporting data... ");
         Random random = new Random();
         int rowCount;
-        for (int i = 0; i < 10000; i++) {
+        for (int i = 0; i < 100; i++) {
             File file = new File(LOCAL_FILE);
             if (file.exists()) {
                 System.out.println(String.format("delete file:%s:%,d, row:%,d", file, file.length(), getFileRowCount(file)));
@@ -113,10 +85,20 @@ public class DataExporterTest {
             }
             rowCount = random.nextInt(2000000);
             DataExporterTest exporterTest = new DataExporterTest();
+            rowCount = 30000000;
+//            rowCount = 100;
+            long s1 = System.currentTimeMillis();
             exporterTest.exportToLocal(rowCount);
-            System.out.println(String.format("%d --- %s expect row:%,d, exported data row:%,d",
-                i, new DateTime(), rowCount, getFileRowCount(file)));
-            Thread.sleep(3000);
+            long s2 = System.currentTimeMillis();
+            System.out.println(String.format("%d --- spend: %,d--- %s expect row:%,d, exported data row:%,d",
+                i, s2-s1, new DateTime(), rowCount, getFileRowCount(file)));
+//            Thread.sleep(3000);
+            file = new File(LOCAL_FILE);
+            if (file.exists()) {
+                System.out.println(String.format("delete file:%s:%,d, row:%,d", file, file.length(), getFileRowCount(file)));
+                file.delete();
+            }
+            System.out.println("\n\n\n\n");
         }
         System.out.println(new DateTime() + " export successfully");
     }

@@ -33,7 +33,7 @@ public class DataAppendTest {
 
     long min = Integer.MAX_VALUE;
     long max = Integer.MIN_VALUE;
-    int base = 100;
+    int base = 10000000;
     for (int i = 0; i < base; i++) {
 //      sender.add(Lists.newArrayList(String.format("id-%07d", i), "event" + r.nextInt(10),
 //          "args-" + i, r.nextInt(60) + 10, 100 + r.nextInt(600), 100 * r.nextFloat(), 1000 * r.nextDouble()));

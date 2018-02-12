@@ -33,6 +33,10 @@ public class PartitionDistributionInfo {
     return servers;
   }
 
+  public void setServers(List<String> servers) {
+    this.servers = servers;
+  }
+
   @Override public int hashCode() {
     int result = partition;
     result = 31 * result + version.hashCode();
@@ -48,9 +52,6 @@ public class PartitionDistributionInfo {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    if (!super.equals(o)) {
-      return false;
-    }
 
     PartitionDistributionInfo that = (PartitionDistributionInfo) o;
 
@@ -64,5 +65,10 @@ public class PartitionDistributionInfo {
       return false;
     }
     return true;
+  }
+
+  @Override
+  public String toString() {
+    return String.format("{interval:%s, version:%s, partition:%d}, servers:%s", interval, version, partition, servers);
   }
 }
