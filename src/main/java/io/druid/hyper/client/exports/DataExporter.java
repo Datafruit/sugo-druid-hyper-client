@@ -106,10 +106,7 @@ public abstract class DataExporter implements Closeable {
         }
 
         int rowCount;
-        System.out.println("export batch from server");
         rowCount = batchExportFromServer(pdis, 0);
-//        System.out.println("export by partition");
-//        rowCount = exportByPdiIterator(pdis);
 
         close();
 
@@ -130,7 +127,7 @@ public abstract class DataExporter implements Closeable {
             serverPdis.add(pdi);
             server2PdiMap.put(server, serverPdis);
             if (pdi.getServers().size() < 2) {
-                System.out.println(num++ + "--" + pdi);
+//                System.out.println(num++ + "--" + pdi);
             }
             part2PdiMap.put(pdi.getPartition() + "", pdi);
         }
@@ -146,7 +143,7 @@ public abstract class DataExporter implements Closeable {
             List<PartitionDistributionInfo> requestPdis = entry.getValue();
             String queryStr = buildServerQueryString(requestPdis);
             String infoStr = String.format("%d - %s region server:%s, segments:%d", serverRetryCount, new DateTime(), regionServer, requestPdis.size());
-            System.out.println(infoStr);
+//            System.out.println(infoStr);
             log.info(infoStr);
             try {
                 RequestBody body = RequestBody.create(DEFAULT_MEDIA_TYPE, queryStr);
@@ -166,7 +163,7 @@ public abstract class DataExporter implements Closeable {
                     List<PartitionDistributionInfo> missedPdis = null;
                     if (retryAll) {
                         String msg = String.format("There are too much missingSegments:[%s] in region server:[%s], segment count:[%d]", requestPdis, regionServer, requestPdis.size());
-                        System.out.println(msg);
+//                        System.out.println(msg);
                         log.warn(msg);
                         missedPdis = requestPdis;
                     } else {
@@ -174,7 +171,7 @@ public abstract class DataExporter implements Closeable {
                         if (missingSegmentsStr != null) {
                             String msg = String.format("missingSegments:%s, region server:%s", missingSegmentsStr, regionServer);
                             log.warn(msg);
-                            System.out.println(msg);
+//                            System.out.println(msg);
                             missedPdis = getRetryPdis(missingSegmentsStr, part2PdiMap, regionServer);
                         }
                         int read = readFromResponse(response);
@@ -207,7 +204,7 @@ public abstract class DataExporter implements Closeable {
                     regionServer, query.getDataSource(), entry.getValue());
             }
             String str = String.format("%d - %s row count:%,d", serverRetryCount, new DateTime(), rowCount);
-            System.out.println(str);
+//            System.out.println(str);
             log.info(str);
             if (rowCount >= limit) {
                 break;
