@@ -41,7 +41,10 @@ public class DataSender implements Closeable {
     private Progressable reporter;
     private int updateThreshold;
     private int addThreshold = DEFAULT_SEND_THRESHOLD;
+    private boolean closed = false;
     private AtomicLong totalRecord = new AtomicLong();
+
+
 
     private DataSender(String hmaster, String dataSource, Progressable reporter) {
         this(hmaster, dataSource, DEFAULT_SEND_THRESHOLD, reporter);
@@ -86,7 +89,7 @@ public class DataSender implements Closeable {
             Preconditions.checkNotNull(dataSource, "data source can not be null.");
 
             DataSender sender = senderCache.get(this);
-            if (sender == null) {
+            if (sender == null || sender.isClosed()) {
                 sender = new DataSender(server, dataSource, reporter);
 //                senderCache.putIfAbsent(this, sender);
                 senderCache.put(this, sender);
@@ -406,6 +409,9 @@ public class DataSender implements Closeable {
                 size >= addThreshold;
     }
 
+    public boolean isClosed(){
+        return  this.closed;
+    }
     @Override
     public void close() throws IOException {
         if (cacheFlusher != null) {
@@ -466,6 +472,7 @@ public class DataSender implements Closeable {
                 log.error("Failed to shutdown cacheFlusher during close().", e);
             } finally {
                 cacheFlusher = null;
+                this.closed = true;
             }
         }
         log.info("total send " + totalRecord.get() + " entries");
