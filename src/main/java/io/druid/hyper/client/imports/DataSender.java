@@ -41,6 +41,8 @@ public class DataSender implements Closeable {
     private int updateThreshold;
     private int addThreshold = DEFAULT_SEND_THRESHOLD;
     private boolean closed = false;
+    private int totalRecord = 0;
+
 
     private DataSender(String hmaster, String dataSource, Progressable reporter) {
         this(hmaster, dataSource, DEFAULT_SEND_THRESHOLD, reporter);
@@ -375,6 +377,7 @@ public class DataSender implements Closeable {
     }
 
     private void sendData(CacheKey cacheKey, ValueAndFlag valueAndFlag) throws Exception {
+        totalRecord += valueAndFlag.getValuesList().size();
         BatchRecord batchRecord = makeBatchRecord(cacheKey, valueAndFlag);
         sendWorker.send(batchRecord);
         cacheKey.setLastSendTime(System.currentTimeMillis());
@@ -470,6 +473,7 @@ public class DataSender implements Closeable {
                 this.closed = true;
             }
         }
+        log.info("total send " + totalRecord + " entries");
     }
 
     private static class CacheKey {
