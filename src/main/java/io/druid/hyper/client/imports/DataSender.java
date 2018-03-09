@@ -23,6 +23,7 @@ import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class DataSender implements Closeable {
 
@@ -40,7 +41,7 @@ public class DataSender implements Closeable {
     private Progressable reporter;
     private int updateThreshold;
     private int addThreshold = DEFAULT_SEND_THRESHOLD;
-    private int totalRecord = 0;
+    private AtomicLong totalRecord = new AtomicLong();
 
     private DataSender(String hmaster, String dataSource, Progressable reporter) {
         this(hmaster, dataSource, DEFAULT_SEND_THRESHOLD, reporter);
@@ -375,7 +376,7 @@ public class DataSender implements Closeable {
     }
 
     private void sendData(CacheKey cacheKey, ValueAndFlag valueAndFlag) throws Exception {
-        totalRecord += valueAndFlag.getValuesList().size();
+        totalRecord.addAndGet(valueAndFlag.getValuesList().size());
         BatchRecord batchRecord = makeBatchRecord(cacheKey, valueAndFlag);
         sendWorker.send(batchRecord);
         cacheKey.setLastSendTime(System.currentTimeMillis());
@@ -467,7 +468,7 @@ public class DataSender implements Closeable {
                 cacheFlusher = null;
             }
         }
-        log.info("total send " + totalRecord + " entries");
+        log.info("total send " + totalRecord.get() + " entries");
     }
 
     private static class CacheKey {
