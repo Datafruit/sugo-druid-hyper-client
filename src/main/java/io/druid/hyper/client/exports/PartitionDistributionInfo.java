@@ -16,6 +16,8 @@ public class PartitionDistributionInfo {
   private String interval;
   @JsonProperty
   private List<String> servers;
+  @JsonProperty
+  private long readCount;
 
   public int getPartition() {
     return partition;
@@ -31,6 +33,10 @@ public class PartitionDistributionInfo {
 
   public List<String> getServers() {
     return servers;
+  }
+
+  public long getReadCount() {
+    return readCount;
   }
 
   public void setServers(List<String> servers) {

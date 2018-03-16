@@ -15,13 +15,21 @@ import java.util.Random;
 
 public class DataExporterTest {
 
+    //指定hmaster server
     private static final String SERVER = "192.168.0.225:8086";
-    private static final String LOCAL_FILE = "/tmp/wuxianjiRT.csv";
-    private static final String REMOTE_FILE = "/hadoop/data1/wuxianjiRT.txt";
-    private static final String DATA_SOURCE = "janpy-1";
-    private static final List<String> COLUMNS = Arrays.asList("is_active", "event_id", "app_id", "is_installed", "HEAD_IP", "HEAD_ARGS");
+    private static final String LOCAL_FILE = "/tmp/tag_bank.csv";
+    private static final String REMOTE_FILE = "/test/tag_bank.txt";
+    //指定数据源
+    private static final String DATA_SOURCE = "tag_bank";
+    //指定数据列
+    private static final List<String> COLUMNS = Arrays.asList("distinct_id", "ua_age");
     private static final int COUNT = 500000;
 
+    /**
+     * 导出到本地文件
+     * @param rowCount
+     * @throws Exception
+     */
     public void  exportToLocal(int rowCount) throws Exception {
         ScanQuery query = ScanQuery.builder()
                 .select(COLUMNS)
@@ -47,16 +55,24 @@ public class DataExporterTest {
 //            .export();
     }
 
+    /**
+     * 利用sql查询导出到本地文件
+     * @throws Exception
+     */
     public void  exportToLocalUseSQL() throws Exception {
         DataExporter.local()
                 .fromServer(SERVER)
-                .toFile("D:\\fxj_test.csv")
+                .toFile(LOCAL_FILE)
                 .inCSVFormat()
-                .withSQL("select id,name,class from fxj_test limit 16")
-                .usePylql("192.168.0.215:8001")
+                .withSQL("select distinct_id, ua_age from tag_bank limit 16")
+                .usePylql("192.168.0.223:8001")
                 .export();
     }
 
+    /**
+     * 导出到hdfs
+     * @throws Exception
+     */
     public void  exportToHdfs() throws Exception {
         ScanQuery query = ScanQuery.builder()
                 .select(COLUMNS)
@@ -67,7 +83,7 @@ public class DataExporterTest {
         DataExporter.hdfs()
                 .fromServer(SERVER)
                 .toFile(REMOTE_FILE)
-                .inHiveFormat()
+                .inTSVFormat()
                 .withQuery(query)
                 .export();
     }
@@ -85,15 +101,18 @@ public class DataExporterTest {
             }
             rowCount = random.nextInt(2000000);
             DataExporterTest exporterTest = new DataExporterTest();
-            rowCount = 30000000;
+            rowCount = 30000;
 //            rowCount = 100;
             long s1 = System.currentTimeMillis();
-            exporterTest.exportToLocal(rowCount);
+//            exporterTest.exportToLocal(rowCount);
+//            exporterTest.exportToLocalUseSQL();
+            exporterTest.exportToHdfs();
             long s2 = System.currentTimeMillis();
             System.out.println(String.format("%d --- spend: %,d--- %s expect row:%,d, exported data row:%,d",
                 i, s2-s1, new DateTime(), rowCount, getFileRowCount(file)));
 //            Thread.sleep(3000);
             file = new File(LOCAL_FILE);
+            if(i==1) return;
             if (file.exists()) {
                 System.out.println(String.format("delete file:%s:%,d, row:%,d", file, file.length(), getFileRowCount(file)));
                 file.delete();
