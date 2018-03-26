@@ -36,15 +36,23 @@ public final class DruidSerDeUtils {
 
   protected static final String STRING_TYPE = "STRING";
 
+  protected static final String INT_TYPE = "INT";
+
+  protected static final String DOUBLE_TYPE = "DOUBLE";
+
   /* This method converts from the String representation of Druid type
    * to the corresponding Hive type */
   public static PrimitiveTypeInfo convertDruidToHiveType(String typeName) {
     typeName = typeName.toUpperCase();
     switch (typeName) {
+      case INT_TYPE:
+        return TypeInfoFactory.intTypeInfo;
       case FLOAT_TYPE:
         return TypeInfoFactory.floatTypeInfo;
       case LONG_TYPE:
         return TypeInfoFactory.longTypeInfo;
+      case DOUBLE_TYPE:
+        return TypeInfoFactory.doubleTypeInfo;
       case STRING_TYPE:
         return TypeInfoFactory.stringTypeInfo;
       default:

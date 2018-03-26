@@ -17,11 +17,17 @@
  */
 package io.druid.hyper.hive.serde;
 
-import com.google.common.base.Function;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
+import io.druid.hyper.client.util.HttpClientUtil;
 import io.druid.hyper.hive.io.Constants;
+import javafx.util.Pair;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hive.ql.exec.Utilities;
 import org.apache.hadoop.hive.serde.serdeConstants;
 import org.apache.hadoop.hive.serde2.AbstractSerDe;
 import org.apache.hadoop.hive.serde2.SerDeException;
@@ -34,9 +40,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.*;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory;
 import org.apache.hadoop.io.*;
-import org.joda.time.Period;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,13 +50,11 @@ import java.util.*;
 /**
  * DruidSerDe that is used to  deserialize objects from a Druid data source.
  */
-@SerDeSpec(schemaProps = { Constants.DRUID_DATA_SOURCE })
+@SerDeSpec(schemaProps = {Constants.DRUID_DATA_SOURCE})
 public class DruidSerDe extends AbstractSerDe {
 
   protected static final Logger LOG = LoggerFactory.getLogger(DruidSerDe.class);
-
-  private int numConnection;
-  private Period readTimeout;
+  public static final ObjectMapper objectMapper = new ObjectMapper();
 
   private String[] columns;
   private PrimitiveTypeInfo[] types;
@@ -60,75 +62,43 @@ public class DruidSerDe extends AbstractSerDe {
 
   @Override
   public void initialize(Configuration configuration, Properties properties) throws SerDeException {
-    final List<String> columnNames = new ArrayList<>();
-    final List<PrimitiveTypeInfo> columnTypes = new ArrayList<>();
-    List<ObjectInspector> inspectors = new ArrayList<>();
+    TableInfo tableInfo;
 
-    // Druid query
-    String druidQuery = properties.getProperty(Constants.DRUID_QUERY_JSON);
-    if (druidQuery == null) {
-      // No query. Either it is a CTAS, or we need to create a Druid
-      // Segment Metadata query that retrieves all columns present in
-      // the data source (dimensions and metrics).
-      if (!org.apache.commons.lang3.StringUtils
-              .isEmpty(properties.getProperty(serdeConstants.LIST_COLUMNS))
-              && !org.apache.commons.lang3.StringUtils
-              .isEmpty(properties.getProperty(serdeConstants.LIST_COLUMN_TYPES))) {
-        columnNames.addAll(Utilities.getColumnNames(properties));
-
-        columnTypes.addAll(Lists.transform(getColumnTypes(properties),
-                new Function<String, PrimitiveTypeInfo>() {
-                  @Override
-                  public PrimitiveTypeInfo apply(String type) {
-                    return TypeInfoFactory.getPrimitiveTypeInfo(type);
-                  }
-                }
-        ));
-        inspectors.addAll(Lists.transform(columnTypes,
-                new Function<PrimitiveTypeInfo, ObjectInspector>() {
-                  @Override
-                  public ObjectInspector apply(PrimitiveTypeInfo type) {
-                    return PrimitiveObjectInspectorFactory
-                            .getPrimitiveWritableObjectInspector(type);
-                  }
-                }
-        ));
-        columns = columnNames.toArray(new String[columnNames.size()]);
-        types = columnTypes.toArray(new PrimitiveTypeInfo[columnTypes.size()]);
-        inspector = ObjectInspectorFactory
-                .getStandardStructObjectInspector(columnNames, inspectors);
-      } else {
-        String dataSource = properties.getProperty(Constants.DRUID_DATA_SOURCE);
-        if (dataSource == null) {
-          throw new SerDeException("Druid data source not specified; use " +
-                  Constants.DRUID_DATA_SOURCE + " in table properties");
-        }
-
-
-        columns = columnNames.toArray(new String[columnNames.size()]);
-        types = columnTypes.toArray(new PrimitiveTypeInfo[columnTypes.size()]);
-        inspector = ObjectInspectorFactory
-                .getStandardStructObjectInspector(columnNames, inspectors);
-      }
-    } else {
-      // Query is specified, we can extract the results schema from the query
-
-
-      columns = new String[columnNames.size()];
-      types = new PrimitiveTypeInfo[columnNames.size()];
-      for (int i = 0; i < columnTypes.size(); ++i) {
-        columns[i] = columnNames.get(i);
-        types[i] = columnTypes.get(i);
-        inspectors
-                .add(PrimitiveObjectInspectorFactory.getPrimitiveWritableObjectInspector(types[i]));
-      }
-      inspector = ObjectInspectorFactory.getStandardStructObjectInspector(columnNames, inspectors);
+    String dataSource = properties.getProperty(Constants.DRUID_DATA_SOURCE);
+    if (dataSource == null) {
+      throw new SerDeException("Druid data source not specified; use " +
+          Constants.DRUID_DATA_SOURCE + " in table properties");
     }
 
+    String masterStr = configuration.get(Constants.HIVE_DRUID_HMASTER_DEFAULT_ADDRESS);
+    masterStr = Strings.isNullOrEmpty(masterStr) ? properties.getProperty(Constants.HIVE_DRUID_HMASTER_DEFAULT_ADDRESS) : masterStr;
+    Preconditions.checkNotNull(masterStr, "hmaster is null");
+
+    // Infer schema
+    List<Pair<String, String>> columnTypes = submitMetadataRequest(masterStr, dataSource);
+    tableInfo = new TableInfo();
+    for (Pair<String, String> columnType : columnTypes) {
+      String key = columnType.getKey();
+      if (Constants.TIME_COLUMN_NAME.equals(key)) {
+        continue;
+      }
+      PrimitiveTypeInfo type = DruidSerDeUtils.convertDruidToHiveType(columnType.getValue()); // field type
+      tableInfo.addColumn(key, type);
+    }
+
+    if (tableInfo != null) {
+      columns = tableInfo.getColumnArray();
+      types = tableInfo.getColumnTypes();
+      inspector = ObjectInspectorFactory.getStandardStructObjectInspector(
+          tableInfo.getColumnNames(),
+          tableInfo.getInspectors(),
+          tableInfo.getComments()
+      );
+    }
+
+
     if (LOG.isDebugEnabled()) {
-      LOG.debug("DruidSerDe initialized with\n"
-              + "\t columns: " + columnNames
-              + "\n\t types: " + columnTypes);
+      LOG.debug("DruidSerDe initialized with\n" + tableInfo);
     }
   }
 
@@ -269,4 +239,33 @@ public class DruidSerDe extends AbstractSerDe {
     return names;
   }
 
+
+  protected List<Pair<String, String>> submitMetadataRequest(String address, String dataSource)
+      throws SerDeException {
+    try {
+
+      String response = HttpClientUtil.get(
+          String.format("%s/druid/hmaster/v1/datasources/dimensions/%s", "http://" + address, dataSource));
+
+      Map<String, Object> segmentAnalysisList = objectMapper.readValue(
+          response,
+          new TypeReference<Map<String, Object>>() {
+          });
+      List<Map<String, Object>> columnMap = (List<Map<String, Object>>) segmentAnalysisList.get("dimensions");
+      List<Pair<String, String>> columnTypes = new ArrayList<>(columnMap.size());
+      for (Map<String, Object> entity : columnMap) {
+        String type = entity.get("type").toString();
+        boolean hasMultipleValues = (boolean) entity.get("hasMultipleValues");
+        if (hasMultipleValues)
+          type = "string";
+        columnTypes.add(new Pair<>(entity.get("name").toString(), type.toUpperCase()));
+      }
+      if (columnTypes.size() < 1) {
+        throw new SerDeException(String.format("No column in DataSource[%s]", dataSource));
+      }
+      return columnTypes;
+    } catch (Exception e) {
+      throw new SerDeException(org.apache.hadoop.util.StringUtils.stringifyException(e));
+    }
+  }
 }
