@@ -2,7 +2,9 @@ package io.druid.hyper.client.imports.datasource;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
+import io.druid.hyper.client.util.HMasterUtil;
 import io.druid.hyper.client.util.HttpClientUtil;
+import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,13 +17,15 @@ public class DataSourceSpecLoader {
     private static final String QUERY_DATA_SOURCE_SCHEMA = "http://%s/druid/hmaster/v1/datasources/spec/%s";
     private static final ObjectMapper jsonMapper = new ObjectMapper();
 
-    private final String queryDataSourceUrl;
+    private final String dataSource;
+    private final String[] hmasters;
     private DatasourceSpec datasourceSpec;
 
     public DataSourceSpecLoader(String hmaster, String dataSource) {
         Preconditions.checkNotNull(hmaster, "hmaster can not be null.");
+        hmasters = StringUtils.split(hmaster, ",");
         Preconditions.checkNotNull(dataSource, "dataSource can not be null.");
-        this.queryDataSourceUrl = String.format(QUERY_DATA_SOURCE_SCHEMA, hmaster, dataSource);
+        this.dataSource = dataSource;
     }
 
     public String getPrimaryColumn() {
@@ -61,6 +65,7 @@ public class DataSourceSpecLoader {
 
     private void loadDataSourceSpec() {
         try {
+            String queryDataSourceUrl = String.format(QUERY_DATA_SOURCE_SCHEMA, HMasterUtil.getLeader(hmasters), dataSource);
             String resultJson = HttpClientUtil.get(queryDataSourceUrl);
             datasourceSpec = jsonMapper.readValue(resultJson, DatasourceSpec.class);
         } catch (IOException e) {

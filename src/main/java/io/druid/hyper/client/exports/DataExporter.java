@@ -7,8 +7,10 @@ import com.google.common.base.Strings;
 import io.druid.hyper.client.exports.vo.Query;
 import io.druid.hyper.client.exports.vo.ScanQuery;
 import io.druid.hyper.client.exports.vo.SqlQuery;
+import io.druid.hyper.client.util.HMasterUtil;
 import io.druid.hyper.client.util.JsonObjectIterator;
 import okhttp3.*;
+import org.apache.commons.lang.StringUtils;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +35,7 @@ public abstract class DataExporter implements Closeable {
 
     String filePath;
     String server;
+    private String[] servers;
     String separator;
     Query query;
     String sql;
@@ -74,6 +77,7 @@ public abstract class DataExporter implements Closeable {
     }
 
     private List<PartitionDistributionInfo> fetchPdisInfo() throws IOException {
+        String server = HMasterUtil.getLeader(servers);
         String hmasterUrl = String.format(HMASTER_SERVER_SCHEMA, server, query.getDataSource());
         Request metaRequest = new Request.Builder().url(hmasterUrl).get().build();
         Response metaResponse = client.newCall(metaRequest).execute();
@@ -365,6 +369,7 @@ public abstract class DataExporter implements Closeable {
 
     public DataExporter fromServer(String server) {
         this.server = server;
+        this.servers = StringUtils.split(server, ",");
         return this;
     }
 
