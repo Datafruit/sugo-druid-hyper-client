@@ -23,6 +23,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
+import io.druid.hyper.client.util.HMasterUtil;
 import io.druid.hyper.client.util.HttpClientUtil;
 import io.druid.hyper.hive.io.Constants;
 import javafx.util.Pair;
@@ -245,7 +246,7 @@ public class DruidSerDe extends AbstractSerDe {
     try {
 
       String response = HttpClientUtil.get(
-          String.format("%s/druid/hmaster/v1/datasources/dimensions/%s", "http://" + address, dataSource));
+          String.format("%s/druid/hmaster/v1/datasources/dimensions/%s", "http://" + HMasterUtil.getLeader(StringUtils.split(address,",")), dataSource));
 
       Map<String, Object> segmentAnalysisList = objectMapper.readValue(
           response,
