@@ -20,7 +20,6 @@ package io.druid.hyper.hive.serde;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import io.druid.hyper.client.util.HMasterUtil;
@@ -41,6 +40,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.*;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.io.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,15 +76,17 @@ public class DruidSerDe extends AbstractSerDe {
     Preconditions.checkNotNull(masterStr, "hmaster is null");
 
     // Infer schema
-    List<Pair<String, String>> columnTypes = submitMetadataRequest(masterStr, dataSource);
+    List<Pair<String, Pair<String, Boolean>>> columnTypes = submitMetadataRequest(masterStr, dataSource);
     tableInfo = new TableInfo();
-    for (Pair<String, String> columnType : columnTypes) {
+    for (Pair<String, Pair<String, Boolean>> columnType : columnTypes) {
       String key = columnType.getKey();
       if (Constants.TIME_COLUMN_NAME.equals(key)) {
         continue;
       }
-      PrimitiveTypeInfo type = DruidSerDeUtils.convertDruidToHiveType(columnType.getValue()); // field type
-      tableInfo.addColumn(key, type);
+      Pair<String, Boolean> typePair = columnType.getValue();
+      PrimitiveTypeInfo type = DruidSerDeUtils.convertDruidToHiveType(typePair.getKey()); // field type
+
+      tableInfo.addColumn(key, type, typePair.getValue());
     }
 
     if (tableInfo != null) {
@@ -241,25 +243,23 @@ public class DruidSerDe extends AbstractSerDe {
   }
 
 
-  protected List<Pair<String, String>> submitMetadataRequest(String address, String dataSource)
+  protected List<Pair<String, Pair<String, Boolean>>> submitMetadataRequest(String address, String dataSource)
       throws SerDeException {
     try {
 
       String response = HttpClientUtil.get(
-          String.format("%s/druid/hmaster/v1/datasources/dimensions/%s", "http://" + HMasterUtil.getLeader(StringUtils.split(address,",")), dataSource));
+          String.format("http://%s/druid/hmaster/v1/datasources/dimensions/%s", HMasterUtil.getLeader(StringUtils.split(address,",")), dataSource));
 
       Map<String, Object> segmentAnalysisList = objectMapper.readValue(
           response,
           new TypeReference<Map<String, Object>>() {
           });
       List<Map<String, Object>> columnMap = (List<Map<String, Object>>) segmentAnalysisList.get("dimensions");
-      List<Pair<String, String>> columnTypes = new ArrayList<>(columnMap.size());
+      List<Pair<String, Pair<String, Boolean>>> columnTypes = new ArrayList<>(columnMap.size());
       for (Map<String, Object> entity : columnMap) {
         String type = entity.get("type").toString();
         boolean hasMultipleValues = (boolean) entity.get("hasMultipleValues");
-        if (hasMultipleValues)
-          type = "string";
-        columnTypes.add(new Pair<>(entity.get("name").toString(), type.toUpperCase()));
+        columnTypes.add(new Pair<>(entity.get("name").toString(), new Pair<>(type.toUpperCase(), hasMultipleValues)));
       }
       if (columnTypes.size() < 1) {
         throw new SerDeException(String.format("No column in DataSource[%s]", dataSource));
