@@ -18,6 +18,7 @@
 
 package io.druid.hyper.hive.io;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
@@ -61,6 +62,13 @@ public class DruidRecordWriter implements RecordWriter<NullWritable, DruidWritab
     DruidWritable record = (DruidWritable) w;
     Map<String, Object> kvs =  record.getValue();
     kvs.remove("__time");
+
+    for (String key: kvs.keySet()) {
+      if(kvs.get(key) instanceof List){
+        List<Object> list = (List<Object>) kvs.get(key);
+        kvs.put(key, Joiner.on(",").join(list));
+      }
+    }
     try {
       dataSender.update(kvs);
     } catch (Exception e) {

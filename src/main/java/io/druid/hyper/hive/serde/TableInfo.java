@@ -5,6 +5,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.AbstractPrimitiveWritableObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory;
+import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory;
@@ -31,8 +32,8 @@ public class TableInfo {
   }
 
 
-  public PrimitiveTypeInfo[] getColumnTypes() {
-    return columnTypes.toArray(new PrimitiveTypeInfo[columnTypes.size()]);
+  public TypeInfo[] getColumnTypes() {
+    return columnTypes.toArray(new TypeInfo[columnTypes.size()]);
   }
 
   public List<String> getColumnNames() {
@@ -64,7 +65,16 @@ public class TableInfo {
       return;
     }
     columnNames.add(col);
-    columnTypes.add(type);
+    if(hasMultipleValues){
+      ListTypeInfo typeInfo = new ListTypeInfo();
+      typeInfo.setListElementTypeInfo(type);
+      columnTypes.add(typeInfo);
+    }
+    else {
+      columnTypes.add(type);
+    }
+
+
     comments.add(comment);
     columnTypeMap.put(col.toLowerCase(), type);
     AbstractPrimitiveWritableObjectInspector inspector = PrimitiveObjectInspectorFactory.getPrimitiveWritableObjectInspector(type);

@@ -21,31 +21,25 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.google.common.collect.Lists;
 import io.druid.hyper.client.util.HMasterUtil;
 import io.druid.hyper.client.util.HttpClientUtil;
 import io.druid.hyper.hive.io.Constants;
 import javafx.util.Pair;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hive.serde.serdeConstants;
 import org.apache.hadoop.hive.serde2.AbstractSerDe;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.SerDeSpec;
 import org.apache.hadoop.hive.serde2.SerDeStats;
-import org.apache.hadoop.hive.serde2.io.TimestampWritable;
-import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory;
-import org.apache.hadoop.hive.serde2.objectinspector.StructField;
-import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.*;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.*;
+import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.io.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.Timestamp;
 import java.util.*;
 
 /**
@@ -58,7 +52,7 @@ public class DruidSerDe extends AbstractSerDe {
   public static final ObjectMapper objectMapper = new ObjectMapper();
 
   private String[] columns;
-  private PrimitiveTypeInfo[] types;
+  private TypeInfo[] types;
   private ObjectInspector inspector;
 
   @Override
@@ -132,44 +126,58 @@ public class DruidSerDe extends AbstractSerDe {
         continue;
       }
       final Object res;
-      switch (types[i].getPrimitiveCategory()) {
-        case TIMESTAMP:
-          res = ((TimestampObjectInspector) fields.get(i).getFieldObjectInspector())
-                  .getPrimitiveJavaObject(
-                          values.get(i)).getTime();
-          break;
-        case BYTE:
-          res = ((ByteObjectInspector) fields.get(i).getFieldObjectInspector()).get(values.get(i));
-          break;
-        case SHORT:
-          res = ((ShortObjectInspector) fields.get(i).getFieldObjectInspector()).get(values.get(i));
-          break;
-        case INT:
-          res = ((IntObjectInspector) fields.get(i).getFieldObjectInspector()).get(values.get(i));
-          break;
-        case LONG:
-          res = ((LongObjectInspector) fields.get(i).getFieldObjectInspector()).get(values.get(i));
-          break;
-        case FLOAT:
-          res = ((FloatObjectInspector) fields.get(i).getFieldObjectInspector()).get(values.get(i));
-          break;
-        case DOUBLE:
-          res = ((DoubleObjectInspector) fields.get(i).getFieldObjectInspector())
-                  .get(values.get(i));
-          break;
-        case DECIMAL:
-          res = ((HiveDecimalObjectInspector) fields.get(i).getFieldObjectInspector())
-                  .getPrimitiveJavaObject(values.get(i)).doubleValue();
-          break;
-        case STRING:
-          res = ((StringObjectInspector) fields.get(i).getFieldObjectInspector())
-                  .getPrimitiveJavaObject(
-                          values.get(i));
-          break;
-        default:
-          throw new SerDeException("Unknown type: " + types[i].getPrimitiveCategory());
+      TypeInfo typeInfo = types[i];
+      if (typeInfo instanceof PrimitiveTypeInfo){
+        PrimitiveTypeInfo primitiveTypeInfo = (PrimitiveTypeInfo)typeInfo;
+        switch (primitiveTypeInfo.getPrimitiveCategory()) {
+          case TIMESTAMP:
+            res = ((TimestampObjectInspector) fields.get(i).getFieldObjectInspector())
+                .getPrimitiveJavaObject(
+                    values.get(i)).getTime();
+            break;
+          case BYTE:
+            res = ((ByteObjectInspector) fields.get(i).getFieldObjectInspector()).get(values.get(i));
+            break;
+          case SHORT:
+            res = ((ShortObjectInspector) fields.get(i).getFieldObjectInspector()).get(values.get(i));
+            break;
+          case INT:
+            res = ((IntObjectInspector) fields.get(i).getFieldObjectInspector()).get(values.get(i));
+            break;
+          case LONG:
+            res = ((LongObjectInspector) fields.get(i).getFieldObjectInspector()).get(values.get(i));
+            break;
+          case FLOAT:
+            res = ((FloatObjectInspector) fields.get(i).getFieldObjectInspector()).get(values.get(i));
+            break;
+          case DOUBLE:
+            res = ((DoubleObjectInspector) fields.get(i).getFieldObjectInspector())
+                .get(values.get(i));
+            break;
+          case DECIMAL:
+            res = ((HiveDecimalObjectInspector) fields.get(i).getFieldObjectInspector())
+                .getPrimitiveJavaObject(values.get(i)).doubleValue();
+            break;
+          case STRING:
+            res = ((StringObjectInspector) fields.get(i).getFieldObjectInspector())
+                .getPrimitiveJavaObject(
+                    values.get(i));
+            break;
+          default:
+            throw new SerDeException("Unknown type: " + primitiveTypeInfo.getPrimitiveCategory());
+        }
+        value.put(columns[i], res);
+      } else if (typeInfo instanceof ListTypeInfo){
+        List<Object> list = (List<Object>) ((StandardListObjectInspector) fields.get(i).getFieldObjectInspector()).getList(values.get(i));
+        PrimitiveTypeInfo primitiveTypeInfo = (PrimitiveTypeInfo) ((ListTypeInfo) typeInfo).getListElementTypeInfo();
+        List<Object> resList = new ArrayList<>();
+        for (Object ele : list) {
+          resList.add(DruidSerDeUtils.convertWritableToJavaObject(ele, primitiveTypeInfo));
+        }
+
+        value.put(columns[i], resList);
       }
-      value.put(columns[i], res);
+
     }
 
     return new DruidWritable(value);
@@ -183,65 +191,13 @@ public class DruidSerDe extends AbstractSerDe {
 
   @Override
   public Object deserialize(Writable writable) throws SerDeException {
-    DruidWritable input = (DruidWritable) writable;
-    List<Object> output = Lists.newArrayListWithExpectedSize(columns.length);
-    for (int i = 0; i < columns.length; i++) {
-      final Object value = input.getValue().get(columns[i]);
-      if (value == null) {
-        output.add(null);
-        continue;
-      }
-      switch (types[i].getPrimitiveCategory()) {
-        case TIMESTAMP:
-          output.add(new TimestampWritable(new Timestamp((Long) value)));
-          break;
-        case BYTE:
-          output.add(new ByteWritable(((Number) value).byteValue()));
-          break;
-        case SHORT:
-          output.add(new ShortWritable(((Number) value).shortValue()));
-          break;
-        case INT:
-          output.add(new IntWritable(((Number) value).intValue()));
-          break;
-        case LONG:
-          output.add(new LongWritable(((Number) value).longValue()));
-          break;
-        case FLOAT:
-          output.add(new FloatWritable(((Number) value).floatValue()));
-          break;
-        case DOUBLE:
-          output.add(new DoubleWritable(((Number) value).doubleValue()));
-          break;
-        case STRING:
-          output.add(new Text(value.toString()));
-          break;
-        default:
-          throw new SerDeException("Unknown type: " + types[i].getPrimitiveCategory());
-      }
-    }
-    return output;
+    return null;
   }
 
   @Override
   public ObjectInspector getObjectInspector() throws SerDeException {
     return inspector;
   }
-
-  public static List<String> getColumnTypes(Properties props) {
-    List<String> names = new ArrayList<String>();
-    String colNames = props.getProperty(serdeConstants.LIST_COLUMN_TYPES);
-    String[] cols = colNames.trim().split(":");
-    if (cols != null) {
-      for (String col : cols) {
-        if (col != null && !col.trim().equals("")) {
-          names.add(col);
-        }
-      }
-    }
-    return names;
-  }
-
 
   protected List<Pair<String, Pair<String, Boolean>>> submitMetadataRequest(String address, String dataSource)
       throws SerDeException {
