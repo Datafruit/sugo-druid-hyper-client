@@ -52,10 +52,8 @@ public class DruidRecordWriter implements RecordWriter<NullWritable, DruidWritab
     String masterStr = conf.get(Constants.HIVE_DRUID_HMASTER_DEFAULT_ADDRESS);
     masterStr = Strings.isNullOrEmpty(masterStr) ? tableProperties.getProperty(Constants.HIVE_DRUID_HMASTER_DEFAULT_ADDRESS) : masterStr;
     Preconditions.checkNotNull(masterStr, "hmaster is null");
-    Iterable<String> masterIt = Splitter.on(",").omitEmptyStrings().trimResults().split(masterStr);
-    List<String> masters = Lists.newArrayList(masterIt);
 
-    dataSender = DataSender.builder().toServer(masters.get(0)).ofDataSource(datasource).withReporter(progress).build();
+    dataSender = DataSender.builder().toServer(masterStr).ofDataSource(datasource).withReporter(progress).build();
   }
 
   @Override

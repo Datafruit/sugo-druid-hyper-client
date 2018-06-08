@@ -16,6 +16,8 @@ public class PartitionDistributionInfo {
   private String interval;
   @JsonProperty
   private List<String> servers;
+  @JsonProperty
+  private int readCount;
 
   public int getPartition() {
     return partition;
@@ -69,6 +71,6 @@ public class PartitionDistributionInfo {
 
   @Override
   public String toString() {
-    return String.format("{interval:%s, version:%s, partition:%d}, servers:%s", interval, version, partition, servers);
+    return String.format("{interval:%s, version:%s, partition:%d}, servers:%s, readCount:%s", interval, version, partition, servers, readCount);
   }
 }
