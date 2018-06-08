@@ -18,8 +18,10 @@
 package io.druid.hyper.hive.serde;
 
 import org.apache.hadoop.hive.serde.serdeConstants;
+import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory;
+import org.apache.hadoop.io.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,15 +38,23 @@ public final class DruidSerDeUtils {
 
   protected static final String STRING_TYPE = "STRING";
 
+  protected static final String INT_TYPE = "INT";
+
+  protected static final String DOUBLE_TYPE = "DOUBLE";
+
   /* This method converts from the String representation of Druid type
    * to the corresponding Hive type */
   public static PrimitiveTypeInfo convertDruidToHiveType(String typeName) {
     typeName = typeName.toUpperCase();
     switch (typeName) {
+      case INT_TYPE:
+        return TypeInfoFactory.intTypeInfo;
       case FLOAT_TYPE:
         return TypeInfoFactory.floatTypeInfo;
       case LONG_TYPE:
         return TypeInfoFactory.longTypeInfo;
+      case DOUBLE_TYPE:
+        return TypeInfoFactory.doubleTypeInfo;
       case STRING_TYPE:
         return TypeInfoFactory.stringTypeInfo;
       default:
@@ -57,6 +67,28 @@ public final class DruidSerDeUtils {
         LOG.warn("Transformation to STRING for unknown type " + typeName);
         return TypeInfoFactory.stringTypeInfo;
     }
+  }
+
+  public static Object convertWritableToJavaObject(Object writable, PrimitiveTypeInfo primitiveTypeInfo){
+    switch (primitiveTypeInfo.getPrimitiveCategory()) {
+      case INT:
+       return ((IntWritable)writable).get();
+      case LONG:
+        return ((LongWritable)writable).get();
+      case FLOAT:
+        return ((FloatWritable)writable).get();
+      case DOUBLE:
+        return ((DoubleWritable)writable).get();
+      default:
+        return ((Text)writable).toString();
+    }
+
+  }
+
+  public static ListTypeInfo convertDruidToHiveListType(PrimitiveTypeInfo typeInfo) {
+    ListTypeInfo listTypeInfo = new ListTypeInfo();
+    listTypeInfo.setListElementTypeInfo(typeInfo);
+    return listTypeInfo;
   }
 
   /* This method converts from the String representation of Druid type
