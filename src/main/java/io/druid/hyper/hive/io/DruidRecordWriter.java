@@ -20,9 +20,11 @@ package io.druid.hyper.hive.io;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import io.druid.hyper.client.imports.DataSender;
 import io.druid.hyper.hive.serde.DruidWritable;
 import org.apache.hadoop.conf.Configuration;
@@ -34,6 +36,7 @@ import org.apache.hadoop.util.Progressable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -60,7 +63,15 @@ public class DruidRecordWriter implements RecordWriter<NullWritable, DruidWritab
   @Override
   public void write(Writable w) throws IOException {
     DruidWritable record = (DruidWritable) w;
-    Map<String, Object> kvs =  record.getValue();
+    // filter for null value
+    Map<String, Object> kvs = Maps.filterEntries(
+      record.getValue(),
+      new Predicate<Map.Entry<String, Object>>() {
+        @Override
+        public boolean apply(@Nullable Map.Entry<String, Object> stringObjectEntry) {
+          return stringObjectEntry.getValue() != null;
+        }
+    });
     kvs.remove("__time");
 
     for (String key: kvs.keySet()) {
